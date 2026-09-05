@@ -9,8 +9,8 @@ alphaTab 1.8.4; the same behaviour is present in the 1.9.0-alpha.1891 build.
 | 01-jump-before-repeat.md | D.C./D.S. on a bar that also closes an unfinished repeat is taken before the repeat | patch_alphatab.py | [#2858](https://github.com/CoderLine/alphaTab/issues/2858) |
 | 02-musicxml-sound-in-direction.md | Jump attributes on `<sound>` inside `<direction>` are ignored | prepare.py step 5 | [#2859](https://github.com/CoderLine/alphaTab/issues/2859) |
 | 03-musicxml-dacapo-without-coda.md | `dacapo` + `tocoda` plays to the end instead of jumping to the coda | `fixJumps` in index.html | [#2860](https://github.com/CoderLine/alphaTab/issues/2860) |
-| 04-musicxml-spelling.md | Notes without `<accidental>` are spelled from the key signature (F# drawn as Gb) | prepare.py step 4, partial | |
-| 05-loadedmidiinfo-recursion.md | `api.midiLoaded.on()` after the first load throws a stack overflow | register before first load | |
+| 04-musicxml-spelling.md | Notes without `<accidental>` are spelled from the key signature (F# drawn as Gb) | prepare.py step 4, partial | [#2861](https://github.com/CoderLine/alphaTab/issues/2861) |
+| 05-loadedmidiinfo-recursion.md | `api.midiLoaded.on()` after the first load throws a stack overflow | register before first load | [#2862](https://github.com/CoderLine/alphaTab/issues/2862) |
 
 ## alphaTab's rules, and what they mean for you
 

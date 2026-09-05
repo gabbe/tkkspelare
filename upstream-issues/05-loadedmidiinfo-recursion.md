@@ -2,8 +2,7 @@
 
 `api.midiLoaded.on()` registered after the MIDI is loaded throws "RangeError: Maximum call stack size exceeded" (WebWorker player)
 
-<!-- REVIEWER NOTE (remove before posting): replace the environment block with
-     the output from your own browser, see README.md in this folder. -->
+<!-- Posted as https://github.com/CoderLine/alphaTab/issues/2862 -->
 
 # Body
 

@@ -2,9 +2,7 @@
 
 MusicXML: a note without an `<accidental>` element is spelled from the key signature instead of its `<step>`/`<alter>` (F# rendered as Gb)
 
-<!-- REVIEWER NOTE (remove before posting): replace the environment block with
-     the output from your own browser, see README.md in this folder. Attach
-     screenshots of the two renderings from the harness if you like. -->
+<!-- Posted as https://github.com/CoderLine/alphaTab/issues/2861 -->
 
 # Body
 
