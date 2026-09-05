@@ -15,6 +15,9 @@ What it does, in order:
      every resulting part.
   3. --copy-lyrics: a voice without text borrows the lyrics of the voice that has
      them, note for note where both start at the same time.
+     A whole part without any text (Bas 1 next to a Bas 2 that carries it)
+     borrows from a related part the same way; the count of notes that got
+     text is reported.
      A bar in which a voice has no notes at all gets a whole-measure rest, or
      with --unison-fill the choral shorthand is resolved: voice 1 is copied
      (unison), and where voice 1 holds chords in such a bar the top note goes
@@ -74,6 +77,11 @@ def duration(el):
 def voice_of(el):
     v = el.find('voice')
     return v.text.strip() if v is not None and v.text else '1'
+
+def norm(name):
+    """Part names as MuseScore exports them can carry stray spaces, colons or even line
+    breaks ("Soprano I: ", "S\nA"). Compare on a cleaned form."""
+    return ' '.join((name or '').replace(':', ' ').split())
 
 def is_chord_note(n): return n.find('chord') is not None
 def is_grace(n): return n.find('grace') is not None
@@ -213,7 +221,7 @@ def split_measure(measure, voice, donor=None, unison_from=None, report=None, top
 def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
     for sp in list(partlist.findall('score-part')):
         pid = sp.get('id'); part = root.find(f"part[@id='{pid}']")
-        pname = sp.findtext('part-name') or pid
+        pname = norm(sp.findtext('part-name')) or pid
         voices = sorted({voice_of(n) for n in part.iter('note')}, key=int)
         if len(voices) < 2:
             print(f'{pname}: 1 voice, kept'); continue
@@ -239,6 +247,36 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
                 print(f'   {nsp.findtext("part-name")}: bars {", ".join(bars)} -> {what}')
             reps.append((nsp, npart))
         replace_part(root, partlist, sp, part, reps)
+
+# ---------- 1b. parts without any text borrow from a related part ----------
+def part_lyric_count(part):
+    return sum(1 for n in part.iter('note') if n.find('rest') is None and n.findall('lyric'))
+
+def positions_with_lyrics(measure):
+    """position -> lyric elements, for any voice (used across parts)."""
+    return {pos: el.findall('lyric') for el, pos in walk(measure)
+            if el.tag == 'note' and not is_chord_note(el) and el.findall('lyric')}
+
+def borrow_lyrics(root, partlist):
+    parts = {norm(sp.findtext('part-name')): root.find(f"part[@id='{sp.get('id')}']") for sp in partlist.findall('score-part')}
+    donors = {n: p for n, p in parts.items() if part_lyric_count(p) > 0}
+    for name, part in parts.items():
+        if part_lyric_count(part) > 0 or not donors: continue
+        # prefer a part sharing the first word of the name (Bas 1 <- Bas 2), else the one with most text
+        word = name.split()[0].lower() if name else ''
+        related = [n for n in donors if n.split()[0].lower() == word]
+        donor = max(related or donors, key=lambda n: part_lyric_count(donors[n]))
+        got = missed = 0
+        for ms, md in zip(part.findall('measure'), donors[donor].findall('measure')):
+            lyr = positions_with_lyrics(md)
+            for el, pos in walk(ms):
+                if el.tag != 'note' or el.find('rest') is not None or is_chord_note(el) or is_grace(el): continue
+                if pos in lyr:
+                    for l in lyr[pos]: el.append(copy.deepcopy(l))
+                    got += 1
+                else:
+                    missed += 1
+        print(f'   {name}: no lyrics, borrowed from {donor}: {got} notes got text, {missed} had no note starting at the same time')
 
 # ---------- 2. chords -> parts ----------
 def explode_measure(measure, index, count):
@@ -268,7 +306,7 @@ def explode_measure(measure, index, count):
 
 def explode_chords(root, partlist, explode):
     for pname, newnames in explode.items():
-        sp = next((s for s in partlist.findall('score-part') if (s.findtext('part-name') or '') == pname), None)
+        sp = next((s for s in partlist.findall('score-part') if norm(s.findtext('part-name')) == norm(pname)), None)
         if sp is None:
             print(f'--explode: no part named {pname!r}; have',
                   [s.findtext('part-name') for s in partlist.findall('score-part')]); continue
@@ -353,8 +391,8 @@ def carry_system_marks(top, kept):
 def keep_only(root, partlist, preference):
     """Keep the first part (by preference order) whose name matches; drop the rest.
     Returns the kept name. Replaces MuseScore's 'Tenor part with the bass hidden'."""
-    names = {sp.findtext('part-name'): sp for sp in partlist.findall('score-part')}
-    pick = next((n for n in preference if n in names), None)
+    names = {norm(sp.findtext('part-name')): sp for sp in partlist.findall('score-part')}
+    pick = next((norm(n) for n in preference if norm(n) in names), None)
     if pick is None:
         raise SystemExit(f'--only: none of {preference} found; parts are {list(names)}')
     top = root.find('part'); kept = root.find(f"part[@id='{names[pick].get('id')}']")
@@ -373,7 +411,7 @@ def parse_map(s):
     out = {}
     for item in filter(None, s.split(';')):
         k, v = item.split('=')
-        out[k.strip()] = [x.strip() for x in v.split(',')]
+        out[norm(k)] = [x.strip() for x in v.split(',')]
     return out
 
 def main():
@@ -392,6 +430,7 @@ def main():
     partlist = root.find('part-list')
     split_voices(root, partlist, parse_map(a.names), a.copy_lyrics, a.unison_fill)
     if a.explode: explode_chords(root, partlist, parse_map(a.explode))
+    if a.copy_lyrics: borrow_lyrics(root, partlist)
     if a.only:
         # A single-part file is for braille transcription, not for alphaTab: leave the
         # MusicXML as MuseScore wrote it (no extra accidentals, no duplicated <sound>).

@@ -64,7 +64,9 @@ py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "B
 2. `--explode` splits divisi written as chords (Bass 1 and Bass 2 on one stem)
    into one part per chord note, top note first. Unison notes go to every part.
 3. `--copy-lyrics` gives a voice without text the lyrics of the voice that has
-   them, note for note where both start at the same time.
+   them, note for note where both start at the same time. A whole part without
+   text (Bas 1 next to a Bas 2 that carries it) borrows from a related part
+   the same way, and the number of notes that got text is reported.
    A bar in which a voice has no notes gets a whole-measure rest, or with
    `--unison-fill` the choral shorthand is resolved: voice 1 is copied
    (unison), and where voice 1 holds chords in such a bar the top note goes to
@@ -81,7 +83,8 @@ py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "B
 
 Step 3 is a guess per note: where the voices have different rhythms, a note
 with no simultaneous onset in the neighbouring voice gets no text. Check each
-song.
+song. Part names are matched after trimming spaces, colons and line breaks,
+so `--names "S A=Sopran,Alt"` matches a MuseScore part named "S⏎A".
 
 ### Single part for braille: `--only`
 
