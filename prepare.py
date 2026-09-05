@@ -380,14 +380,27 @@ def carry_system_marks(top, kept):
     """MuseScore writes system-wide marks (tempo, D.C., To Coda, Coda, Segno, Fine,
     rehearsal marks) on the top staff only. Copy those the kept part lacks, at the
     same musical position in the same measure."""
-    SYSTEM = ('words', 'coda', 'segno', 'rehearsal', 'metronome')
+    # MusicXML does not flag system text. Jumps, rehearsal marks and metronome
+    # marks are unambiguous; plain <words> are carried only when they are tempo
+    # or navigation vocabulary, so that staff text on the top part ("cresc.",
+    # "dolce", "p") does not leak into the tenor.
+    SYSTEM = ('coda', 'segno', 'rehearsal', 'metronome')
+    TEMPO_WORDS = re.compile(r'(d\.\s*c\.|d\.\s*s\.|da capo|dal segno|fine|coda|segno|tempo|rit\.|ritard|rall|accel|'
+                             r'meno mosso|pi[uù] mosso|allegr|andant|adagi|lento|largo|moderato|vivace|presto|grave)', re.I)
+    carried = []
     n = 0
     for mt, mk in zip(top.findall('measure'), kept.findall('measure')):
         have = {ET.tostring(d) for d in mk if d.tag in ('direction', 'sound')}
         for el, pos in list(walk(mt)):
             if el.tag == 'direction':
-                dt = el.find('direction-type')
-                if dt is None or not any(c.tag in SYSTEM for c in dt): continue
+                dt = el.find('direction-type'); snd = el.find('sound')
+                if dt is None: continue
+                words = ' '.join(w.text or '' for w in dt.iter('words')).strip()
+                ok = (any(c.tag in SYSTEM for c in dt)
+                      or (snd is not None and (any(k in JUMP_ATTRS for k in snd.attrib) or 'tempo' in snd.attrib))
+                      or (words and TEMPO_WORDS.search(words)))
+                if not ok: continue
+                carried.append(f"bar {mt.get('number')}: {words or '/'.join(c.tag for c in dt)}")
             elif el.tag == 'sound':
                 if not any(k in JUMP_ATTRS for k in el.attrib): continue
             else:
@@ -401,7 +414,7 @@ def carry_system_marks(top, kept):
                 if kel.tag == 'barline' and kel.get('location') == 'right':
                     target = i; break
             mk.insert(target, copy.deepcopy(el)); n += 1
-    print(f'system marks carried from top part: {n}')
+    print(f'system marks carried from top part: {n}' + (' (' + '; '.join(carried) + ')' if carried else ''))
 
 def keep_only(root, partlist, preference):
     """Keep the first part (by preference order) whose name matches; drop the rest.
