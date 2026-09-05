@@ -17,3 +17,6 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Hand-written four-bar repro snippets for upstream bug reports (no copyrighted music)
+!upstream-issues/repro/*.musicxml

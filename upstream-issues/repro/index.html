@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>alphaTab repro harness</title>
+<style>body{font-family:system-ui,sans-serif;margin:16px}pre{background:#f4f4f4;padding:8px;white-space:pre-wrap}button{margin:4px}</style></head>
+<body>
+<h2>alphaTab repro harness</h2>
+<p>Loads the unmodified alphaTab build from the CDN (version from <code>?v=</code>, default 1.8.4).
+Serve this folder over http (<code>py -m http.server</code>) and click a button. Results appear below,
+together with the output of <code>alphaTab.Environment.printEnvironmentInfo()</code> for the bug report.</p>
+<div>
+<button onclick="run(1)">1: jump before repeat (alphaTex)</button>
+<button onclick="run(2)">2: sound inside direction ignored</button>
+<button onclick="run(3)">3: dacapo + tocoda plays to the end</button>
+<button onclick="run(4)">4a: spelling, same bar</button>
+<button onclick="run(6)">4b: spelling, tie over bar line</button>
+<button onclick="run(5)">5: midiLoaded.on after load</button>
+</div>
+<pre id="out">loading alphaTab…</pre>
+<div id="at" style="width:900px"></div>
+<script>
+const v = new URLSearchParams(location.search).get('v') || '1.8.4';
+document.write(`<script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@${v}/dist/alphaTab.min.js"><\/script>`);
+</script>
+<script>
+const CDN=`https://cdn.jsdelivr.net/npm/@coderline/alphatab@${v}/dist/`;
+const out=document.getElementById('out');
+const log=s=>{out.textContent+=s+'\n'};
+const api=new alphaTab.AlphaTabApi(document.getElementById('at'),{
+  core:{scriptFile:CDN+'alphaTab.min.js',fontDirectory:CDN+'font/'},
+  player:{enablePlayer:true,soundFont:CDN+'soundfont/sonivox.sf2'},
+  // alphaTex input is guitar-style (fret.string); show standard notation only, no tablature
+  display:{staveProfile:'score'}
+});
+// scoreLoaded fires synchronously for alphaTex, so unhook in a timeout where `h` exists
+const loaded=()=>new Promise(res=>{let done=false;const h=api.scoreLoaded.on(()=>{if(done)return;done=true;setTimeout(()=>{api.scoreLoaded.off(h);res();},400);});});
+const loadTex=t=>{const p=loaded();api.tex(t);return p;};
+const loadUrl=u=>{const p=loaded();api.load(u);return p;};
+const order=()=>api.tickCache.masterBars.map(m=>m.masterBar.index+1).join(' ');
+const dirs=()=>{const D=alphaTab.model.Direction;return api.score.masterBars.map((m,i)=>m.directions&&m.directions.size?(i+1)+':'+[...m.directions].map(d=>D[d]).join('+'):null).filter(Boolean).join(', ')||'(none)';};
+const spelled=n=>{const D=alphaTab.model.NoteAccidentalMode;return `midi ${n.realValue}, accidentalMode ${D[n.accidentalMode]}`;};
+
+function envInfo(){
+  const lines=[]; const o={log:console.log,debug:console.debug,info:console.info};
+  ['log','debug','info'].forEach(k=>console[k]=(...a)=>lines.push(a.join(' ')));
+  const prev=alphaTab.Logger.logLevel; alphaTab.Logger.logLevel=alphaTab.LogLevel.Debug;
+  try{alphaTab.Environment.printEnvironmentInfo(true);}finally{alphaTab.Logger.logLevel=prev;Object.assign(console,o);}
+  return lines.join('\n');
+}
+api.playerReady.on(()=>{ if(!out.dataset.ready){out.dataset.ready=1; out.textContent='ready.\n\n'+envInfo()+'\n'+out.textContent.replace('loading alphaTab…','');} });
+
+async function run(n){
+  log('\n--- repro '+n+' ---');
+  try{
+    if(n===1){
+      await loadTex('\\tempo 120 . \\ro 3.3*4 | \\jump DaCoda 3.3*4 | \\rc 2 \\jump DaCapoAlCoda 3.3*4 | \\jump Coda 3.3*4');
+      log('directions: '+dirs()); log('playback order: '+order()); log('expected:       1 2 3 1 2 3 1 2 4');
+    } else if(n===2){
+      await loadUrl('A-sound-in-direction.musicxml');
+      log('directions: '+dirs()); log('playback order: '+order()); log('expected:       1 2 3 1 2 4');
+    } else if(n===3){
+      await loadUrl('A3-measure-sound-only.musicxml');
+      log('directions: '+dirs()); log('playback order: '+order()); log('expected:       1 2 3 1 2 4');
+    } else if(n===4){
+      await loadUrl('B2-same-bar-spelling.musicxml');
+      const b=api.score.tracks[0].staves[0].bars[0].voices[0].beats;
+      b.forEach((bt,i)=>log(`bar 1 beat ${i+1}: `+spelled(bt.notes[0])));
+      log('look at the rendering: expected #F, F, G on the same lines; actual shows a flat G and a natural G');
+    } else if(n===6){
+      await loadUrl('B-tie-spelling.musicxml');
+      const s=api.score.tracks[0].staves[0];
+      log('tie bar 1: '+spelled(s.bars[0].voices[0].beats[0].notes[0])); log('tie bar 2: '+spelled(s.bars[1].voices[0].beats[0].notes[0]));
+      log('look at the rendering: the tie should connect two F sharps on the same line');
+    } else if(n===5){
+      if(!api.score) await loadTex('\\tempo 120 . 3.3*4');
+      try{ api.midiLoaded.on(()=>{}); log('no error (unexpected)'); }
+      catch(e){ log(e.constructor.name+': '+e.message); log((e.stack||'').split('\n').slice(0,4).join('\n')); }
+    }
+  }catch(e){ log('harness error: '+e.message); }
+}
+</script></body></html>
