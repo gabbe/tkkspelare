@@ -15,6 +15,9 @@ What it does, in order:
      every resulting part.
   3. --copy-lyrics: a voice without text borrows the lyrics of the voice that has
      them, note for note where both start at the same time.
+     A bar in which a voice has no notes at all gets a whole-measure rest, or
+     with --unison-fill a copy of voice 1 (choral shorthand for unison). The
+     bars are listed either way, so the digitiser can check.
   4. Tied notes that continue into a new bar get an explicit <accidental> copied
      from the start of the tie.  alphaTab spells notes from the key signature
      unless an <accidental> is present, so without this an F# tied over a bar
@@ -115,22 +118,29 @@ def lyric_map(measure, voice):
     return {pos: el.findall('lyric') for el, pos in walk(measure)
             if el.tag == 'note' and voice_of(el) == voice and not is_chord_note(el) and el.findall('lyric')}
 
-def split_measure(measure, voice, donor=None):
+def measure_length(measure):
+    """Length of the measure in divisions: the furthest position any voice reaches."""
+    return max([pos + (duration(el) if el.tag in ('note', 'forward') and not is_chord_note(el) and not is_grace(el) else 0)
+                for el, pos in walk(measure)] or [0])
+
+def split_measure(measure, voice, donor=None, unison_from=None, report=None):
     lyr = lyric_map(measure, donor) if donor else {}
     m = ET.Element('measure', measure.attrib)
-    started = False
+    mlen = measure_length(measure)
+    # MuseScore interleaves voices with <backup>/<forward>, and uses a trailing
+    # <forward> to position end-of-bar directions. None of that is copied; the
+    # kept voice is re-timed from scratch: a gap before a kept note becomes a
+    # <forward> of exactly that gap, and nothing is emitted after the last note.
+    emitted = 0
     for el, pos in walk(measure):
         tag = el.tag
-        if tag == 'backup': continue
-        if tag == 'forward':
-            if voice_of(el) == voice and started: m.append(copy.deepcopy(el))
-            continue
+        if tag in ('backup', 'forward'): continue
         if tag == 'note':
             if voice_of(el) != voice: continue
-            if not started:
-                started = True
-                if pos > 0:
-                    fw = ET.SubElement(m, 'forward'); ET.SubElement(fw, 'duration').text = str(pos)
+            if pos > emitted:
+                fw = ET.SubElement(m, 'forward'); ET.SubElement(fw, 'duration').text = str(pos - emitted)
+                emitted = pos
+            if not is_chord_note(el) and not is_grace(el): emitted += duration(el)
             n = copy.deepcopy(el)
             if (pos in lyr and not n.findall('lyric') and n.find('rest') is None
                     and not is_chord_note(n) and not is_grace(n)):
@@ -140,10 +150,30 @@ def split_measure(measure, voice, donor=None):
             v = el.find('voice')
             if v is not None and v.text and v.text.strip() != voice: continue
         m.append(copy.deepcopy(el))
+    if emitted == 0:
+        # this voice has nothing in the bar: either the bar is sung in unison (copy the
+        # other voice) or the singers rest (whole-measure rest). Report it either way.
+        if unison_from is not None:
+            for el, pos in walk(measure):
+                if el.tag == 'note' and voice_of(el) == unison_from:
+                    m.append(copy.deepcopy(el))
+            emitted = mlen
+            if report is not None: report.setdefault('unison', []).append(measure.get('number'))
+        else:
+            rest = ET.Element('note'); ET.SubElement(rest, 'rest', {'measure': 'yes'})
+            ET.SubElement(rest, 'duration').text = str(mlen); ET.SubElement(rest, 'voice').text = '1'
+            bl = [c for c in m if c.tag == 'barline' and c.get('location') == 'right']
+            m.insert(list(m).index(bl[0]) if bl else len(m), rest)
+            emitted = mlen
+            if report is not None: report.setdefault('rest', []).append(measure.get('number'))
+    elif emitted < mlen:
+        fw = ET.Element('forward'); ET.SubElement(fw, 'duration').text = str(mlen - emitted)
+        bl = [c for c in m if c.tag == 'barline' and c.get('location') == 'right']
+        m.insert(list(m).index(bl[0]) if bl else len(m), fw)
     for v in m.iter('voice'): v.text = '1'
     return m
 
-def split_voices(root, partlist, names, copy_lyrics):
+def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
     for sp in list(partlist.findall('score-part')):
         pid = sp.get('id'); part = root.find(f"part[@id='{pid}']")
         pname = sp.findtext('part-name') or pid
@@ -160,8 +190,13 @@ def split_voices(root, partlist, names, copy_lyrics):
             nid = f'{pid}v{v}'
             nsp = clone_scorepart(sp, nid, newnames[i] if i < len(newnames) else f'{pname} {v}')
             npart = ET.Element('part', {'id': nid})
+            report = {}
             for meas in part.findall('measure'):
-                npart.append(split_measure(meas, v, donor if v != donor else None))
+                npart.append(split_measure(meas, v, donor if v != donor else None,
+                                           voices[0] if (unison_fill and v != voices[0]) else None, report))
+            for kind, bars in report.items():
+                what = ('copied from voice %s (unison)' % voices[0]) if kind == 'unison' else 'whole-measure rest inserted'
+                print(f'   {nsp.findtext("part-name")}: no voice-{v} notes in bars {", ".join(bars)} -> {what}')
             reps.append((nsp, npart))
         replace_part(root, partlist, sp, part, reps)
 
@@ -307,13 +342,15 @@ def main():
     ap.add_argument('--names', default='', help='rename split voices: "S/A=Sopran,Alt;T/B=Tenor,Bas"')
     ap.add_argument('--explode', default='', help='split chord divisi: "Bas=Bas 1,Bas 2" (applied after --names)')
     ap.add_argument('--copy-lyrics', action='store_true', help='text-less voices borrow the text of the voice that has it')
+    ap.add_argument('--unison-fill', action='store_true',
+                    help='a bar where a lower voice has no notes is sung in unison: copy voice 1 instead of a rest')
     ap.add_argument('--only', default='', help='keep a single part, first match wins: "Tenor 2,Tenor" (for braille)')
     a = ap.parse_args()
 
     data, inner = read(a.src)
     root = ET.fromstring(data)
     partlist = root.find('part-list')
-    split_voices(root, partlist, parse_map(a.names), a.copy_lyrics)
+    split_voices(root, partlist, parse_map(a.names), a.copy_lyrics, a.unison_fill)
     if a.explode: explode_chords(root, partlist, parse_map(a.explode))
     if a.only:
         # A single-part file is for braille transcription, not for alphaTab: leave the
