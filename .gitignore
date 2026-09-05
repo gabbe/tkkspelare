@@ -1,0 +1,19 @@
+# Noter är upphovsrättsskyddade och ligger aldrig i repot. Enda undantaget är
+# den egenkomponerade testfixturen under test/.
+*.mxl
+*.musicxml
+*.mscz
+*.mid
+!test/*.mxl
+
+# Lokalt notbibliotek (genereras från Drive-synken)
+library.json
+noter/
+
+# Genereras av patch_alphatab.py
+vendor/
+
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

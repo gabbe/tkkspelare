@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="sv"><head><meta charset="utf-8"><title>Körövning PoC (alphaTab)</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-columns:320px 1fr;height:100vh}
+#side{padding:12px;border-right:1px solid #ccc;overflow:auto;font-size:14px}
+#main{overflow:auto;position:relative}
+.track{border:1px solid #ddd;padding:6px;margin:6px 0;border-radius:6px}
+.track b{display:block}
+button{margin:2px;border:1px solid #999;background:#f4f4f4;border-radius:4px;padding:2px 8px;cursor:pointer}
+button.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0}
+.at-cursor-bar{background:rgba(255,242,0,.25)}
+.at-selection div{background:rgba(64,64,255,.1)}
+.at-cursor-beat{background:rgba(64,64,255,.75);width:3px}
+.at-highlight *{fill:#0078ff;stroke:#0078ff}
+label{display:block;margin:4px 0}
+#summary{background:#eef;padding:6px;border-radius:6px;margin:6px 0;min-height:2.5em}
+</style></head><body>
+<div id="side">
+<h3>Körövning – PoC</h3>
+<label>Fil:
+<select id="file"></select></label>
+<div><button id="play">▶ / ❚❚</button><button id="stop">■</button>
+<label><input type="checkbox" id="loop"> Loopa markerat område (dra över takter)</label>
+<label><input type="checkbox" id="linear"> Spela utan repriser och hopp</label>
+<label><input type="checkbox" id="metro"> Metronom</label></div>
+<label>Tempo: <span id="speedv">100</span>% <button id="speedreset">100%</button>
+<input type="range" id="speed" min="40" max="200" value="100"></label>
+<label>Instrument-preset:
+<select id="preset">
+<option value="">(som i filen)</option>
+<option value="0">Piano</option>
+<option value="52">Choir Aahs</option>
+<option value="53">Voice Oohs</option>
+<option value="19">Kyrkorgel</option>
+<option value="73">Flöjt</option>
+<option value="48">Stråkar</option>
+</select></label>
+<div id="summary"></div>
+<div id="tracks"></div>
+<p id="status">laddar…</p>
+</div>
+<div id="main"><div id="at"></div></div>
+<!-- lokalt patchad alphaTab (repriser före D.C.), se patch_alphatab.py -->
+<script src="vendor/alphaTab.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const main=$('#main');
+const CDN='https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/';
+const settings={
+ core:{scriptFile:new URL('vendor/alphaTab.js',location.href).href,fontDirectory:CDN+'font/'},
+ player:{enablePlayer:true,enableCursor:true,enableUserInteraction:true,soundFont:CDN+'soundfont/sonivox.sf2',scrollElement:main},
+ display:{layoutMode:'page',scale:0.9}
+};
+const api=new alphaTab.AlphaTabApi($('#at'),settings);
+let score=null;
+// Mixer state lives here, not in the synth: alphaTab resets channel volumes every
+// time the MIDI is regenerated (instrument or pan change), so we re-apply it.
+let mix={vol:[],mute:[],solo:[],pan:[]};
+
+function fixJumps(s){
+ // MuseScore writes "D.C." and "To Coda" as separate marks. alphaTab imports them as
+ // plain DaCapo + DaCoda, which replays to the end. Turn them into the "al Coda" jump.
+ const D=alphaTab.model.Direction;
+ const all=new Set(); s.masterBars.forEach(m=>m.directions&&m.directions.forEach(d=>all.add(d)));
+ const hasCoda=all.has(D.JumpDaCoda), hasFine=all.has(D.TargetFine);
+ const swap=(from,alCoda,alFine)=>s.masterBars.forEach(m=>{ if(m.directions&&m.directions.has(from)){ m.directions.delete(from); m.directions.add(hasCoda?alCoda:hasFine?alFine:from);} });
+ swap(D.JumpDaCapo,D.JumpDaCapoAlCoda,D.JumpDaCapoAlFine);
+ swap(D.JumpDalSegno,D.JumpDalSegnoAlCoda,D.JumpDalSegnoAlFine);
+}
+api.scoreLoaded.on(s=>{
+ score=s; fixJumps(s);
+ mix={vol:s.tracks.map(()=>1),mute:s.tracks.map(()=>false),solo:s.tracks.map(()=>false),pan:s.tracks.map(()=>8)};
+ api.renderTracks(s.tracks); renderTracks();
+ $('#status').textContent=`Laddad: ${s.title||'(ingen titel)'} – ${s.tracks.length} stämmor`;
+});
+api.midiLoaded.on(()=>applyMix());
+api.playerReady.on(()=>$('#status').textContent+=' – ljud klart');
+api.error.on(e=>{$('#status').textContent='FEL: '+e.message;console.error(e)});
+api.playerPositionChanged.on(e=>{const p=$('#pos'); if(p) p.textContent=Math.round(e.currentTime/1000)+'s / '+Math.round(e.endTime/1000)+'s'});
+
+$('#file').onchange=e=>api.load(e.target.value);
+// Library: library.json (local, git-ignored) lists {title, file}. Without it the
+// bundled test fixture is shown.
+const FIXTURE=[{title:'Testsång (fixtur: repris, D.C. al Coda, divisi)',file:'test/fixture-prepared.mxl'},
+               {title:'Testsång, oförberedd export (S/A + T/B)',file:'test/fixture.mxl'}];
+fetch('library.json').then(r=>r.ok?r.json():[]).catch(()=>[]).then(lib=>{
+ const items=lib.concat(FIXTURE); const sel=$('#file');
+ items.forEach(it=>{const o=document.createElement('option');o.value=it.file;o.textContent=it.title;sel.appendChild(o);});
+ api.load(items[0].file);
+});
+$('#play').onclick=()=>api.playPause();
+$('#stop').onclick=()=>api.stop();
+$('#loop').onchange=e=>{api.isLooping=e.target.checked; if(e.target.checked){$('#linear').checked=true;} setLinear($('#linear').checked);};
+$('#linear').onchange=e=>setLinear(e.target.checked);
+$('#metro').onchange=e=>api.metronomeVolume=e.target.checked?1:0;
+const setSpeed=v=>{api.playbackSpeed=v/100;$('#speed').value=v;$('#speedv').textContent=v};
+$('#speed').oninput=e=>setSpeed(+e.target.value);
+$('#speedreset').onclick=()=>setSpeed(100);
+$('#preset').onchange=e=>{
+ if(e.target.value==='')return; const prog=+e.target.value; const AT=alphaTab.model.AutomationType;
+ score.tracks.forEach(t=>{t.playbackInfo.program=prog;
+  // the importer also stores the file's instrument as a beat automation, which
+  // overrides playbackInfo.program at tick 0, so update those too
+  t.staves.forEach(st=>st.bars.forEach(b=>b.voices.forEach(v=>v.beats.forEach(bt=>bt.automations.forEach(a=>{if(a.type===AT.Instrument)a.value=prog;})))))});
+ regenerate();
+};
+function regenerate(){
+ // playbackInfo.volume is used twice by alphaTab: as MIDI channel volume when the
+ // file is generated, and as mixer volume re-applied in readyForPlayback after every
+ // MIDI load (which runs after midiLoaded and would undo applyMix). Generate with
+ // full channel volume, then let readyForPlayback apply the mixer level.
+ score.tracks.forEach((t,i)=>{t.playbackInfo.balance=mix.pan[i];t.playbackInfo.volume=16;t.playbackInfo.isMute=mix.mute[i];t.playbackInfo.isSolo=mix.solo[i];});
+ const range=currentRangeBars();
+ api.loadMidiForScore();
+ score.tracks.forEach((t,i)=>t.playbackInfo.volume=Math.round(mix.vol[i]*16));
+ if(range) setRangeBars(range);
+}
+function applyMix(){
+ score.tracks.forEach((t,i)=>{t.playbackInfo.volume=Math.round(mix.vol[i]*16);t.playbackInfo.isMute=mix.mute[i];t.playbackInfo.isSolo=mix.solo[i];
+  api.changeTrackVolume([t],mix.vol[i]);api.changeTrackMute([t],mix.mute[i]);api.changeTrackSolo([t],mix.solo[i]);});
+ paint();
+}
+
+// ---- linear mode: play without repeats and jumps (used while looping a selection) ----
+let saved=null;
+function setLinear(on){
+ if(on&&!saved){
+  saved=score.masterBars.map(m=>({rc:m.repeatCount,rs:m.isRepeatStart,ae:m.alternateEndings,dir:m.directions?new Set(m.directions):null}));
+  score.masterBars.forEach(m=>{m.repeatCount=0;m.isRepeatStart=false;m.alternateEndings=0;m.directions=null;});
+  regenerate();
+ } else if(!on&&saved){
+  score.masterBars.forEach((m,i)=>{const s=saved[i];m.repeatCount=s.rc;m.isRepeatStart=s.rs;m.alternateEndings=s.ae;m.directions=s.dir;});
+  saved=null; regenerate();
+ }
+}
+// A playback range is stored in ticks, which move when repeats are switched on or
+// off. Remember it as bars + offsets and re-map after the MIDI is regenerated.
+function barAt(tick){
+ const mbs=api.tickCache.masterBars; let hit=null;
+ for(const m of mbs){ if(tick>=m.start&&tick<m.end){hit=m;break;} }
+ if(!hit) hit=mbs[mbs.length-1];
+ return {index:hit.masterBar.index,offset:tick-hit.start};
+}
+function currentRangeBars(){
+ const r=api.playbackRange; if(!r) return null;
+ return {start:barAt(r.startTick),end:barAt(r.endTick-1)};
+}
+function setRangeBars(range){
+ const first=i=>api.tickCache.masterBars.find(m=>m.masterBar.index===i);
+ const s=first(range.start.index), e=first(range.end.index); if(!s||!e) return;
+ api.playbackRange={startTick:s.start+range.start.offset,endTick:e.start+range.end.offset+1};
+}
+function paint(){
+ document.querySelectorAll('.track').forEach((d,i)=>{
+  d.querySelector('[data-a=solo]').classList.toggle('on',mix.solo[i]);
+  d.querySelector('[data-a=mute]').classList.toggle('on',mix.mute[i]);
+  d.querySelector('[data-a=focus]').classList.toggle('on',mix.vol[i]===1&&mix.vol.some(v=>v<1));
+  ['L','C','R'].forEach(k=>d.querySelector(`[data-a=${k}]`).classList.toggle('on',mix.pan[i]==={L:0,C:8,R:16}[k]));
+  d.querySelector('[data-a=vol]').value=Math.round(mix.vol[i]*100);
+ });
+ const n=i=>score.tracks[i].name;
+ const parts=[];
+ const solo=mix.solo.map((s,i)=>s?n(i):null).filter(Boolean); if(solo.length)parts.push('Solo: '+solo.join(', '));
+ const mute=mix.mute.map((s,i)=>s?n(i):null).filter(Boolean); if(mute.length)parts.push('Tyst: '+mute.join(', '));
+ const low=mix.vol.map((v,i)=>v<1?`${n(i)} ${Math.round(v*100)}%`:null).filter(Boolean); if(low.length)parts.push('Dämpat: '+low.join(', '));
+ const pan=mix.pan.map((p,i)=>p!==8?`${n(i)} ${p<8?'vänster':'höger'}`:null).filter(Boolean); if(pan.length)parts.push('Pan: '+pan.join(', '));
+ $('#summary').textContent=parts.length?parts.join(' · '):'Alla stämmor hörs lika, i mitten.';
+}
+function renderTracks(){
+ const box=$('#tracks');box.innerHTML='<p id="pos"></p>';
+ score.tracks.forEach((t,i)=>{
+  const d=document.createElement('div');d.className='track';
+  d.innerHTML=`<b>${t.name||'Stämma '+(i+1)}</b>
+   <button data-a="solo">Solo</button><button data-a="mute">Tyst</button>
+   <button data-a="focus">Dämpa övriga till 25%</button><br>
+   Pan: <button data-a="L">Vänster</button><button data-a="C">Mitt</button><button data-a="R">Höger</button><br>
+   Volym <input type="range" min="0" max="100" value="100" data-a="vol">`;
+  d.onclick=ev=>{const a=ev.target.dataset.a;if(!a||a==='vol')return;
+   if(a==='solo'){mix.solo[i]=!mix.solo[i];}
+   if(a==='mute'){mix.mute[i]=!mix.mute[i];}
+   if(a==='focus'){const on=!(mix.vol[i]===1&&mix.vol.some(v=>v<1)); mix.vol=mix.vol.map((v,j)=>on?(j===i?1:0.25):1);}
+   if(a==='L'||a==='C'||a==='R'){const me={L:0,C:8,R:16}[a]; mix.pan=mix.pan.map((p,j)=>j===i?me:16-me); regenerate(); return;}
+   applyMix();
+  };
+  d.oninput=ev=>{if(ev.target.dataset.a==='vol'){mix.vol[i]=ev.target.value/100;applyMix();}};
+  box.appendChild(d);
+ });
+ paint();
+}
+</script></body></html>
