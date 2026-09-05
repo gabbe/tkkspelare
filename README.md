@@ -78,6 +78,21 @@ Step 3 is a guess per note: where the voices have different rhythms, a note
 with no simultaneous onset in the neighbouring voice gets no text. Check each
 song.
 
+### Single part for braille: `--only`
+
+```bash
+py prepare.py full.mxl tenor.mxl --names "T/B=Tenor,Bas" --copy-lyrics --only "Tenor 2,Tenor"
+```
+
+Keeps one part (first name in the list that exists) and drops the rest. This
+replaces the MuseScore "Tenor part with the bass hidden" that had to be
+maintained by hand for the braille transcription. System marks that MuseScore
+writes on the top staff only (tempo, D.C., To Coda, Coda, Segno, Fine,
+rehearsal marks) are copied into the kept part. The alphaTab workarounds
+(steps 4 and 5) are skipped, so the file is MuseScore's own MusicXML minus the
+other parts. Verified on Rättnu min tid: every note, rest, tie, slur, lyric
+syllable, barline and direction matches the manual Tenor part export.
+
 ## patch_alphatab.py – repeats before jumps
 
 alphaTab 1.8.4 executes D.C./D.S. the first time it reaches the bar, even when

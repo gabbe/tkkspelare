@@ -24,6 +24,12 @@ What it does, in order:
      writes as <sound> inside <direction> are copied to a measure-level <sound>,
      which is the only place alphaTab reads them.  The player then turns
      "D.C." + "To Coda" into "D.C. al Coda" (see index.html).
+  6. --only "Tenor 2,Tenor": keep a single part (first match wins) and drop the
+     rest, producing the one-part file the braille transcription needs, so no
+     "Tenor part with the bass hidden" has to be maintained in MuseScore.
+     System marks that MuseScore writes on the top staff only (tempo, D.C.,
+     To Coda, Coda, Segno, Fine, rehearsal marks) are carried into the kept
+     part. Steps 4 and 5 are alphaTab workarounds and are skipped with --only.
 """
 import argparse, copy, re, zipfile
 import xml.etree.ElementTree as ET
@@ -241,6 +247,53 @@ def hoist_jumps(root):
                 m.insert(list(m).index(d) + 1, ET.Element('sound', attrs)); n += 1
     print(f'jump directions copied to measure level: {n}')
 
+# ---------- 6. keep a single part (for braille transcription) ----------
+def carry_system_marks(top, kept):
+    """MuseScore writes system-wide marks (tempo, D.C., To Coda, Coda, Segno, Fine,
+    rehearsal marks) on the top staff only. Copy those the kept part lacks, at the
+    same musical position in the same measure."""
+    SYSTEM = ('words', 'coda', 'segno', 'rehearsal', 'metronome')
+    n = 0
+    for mt, mk in zip(top.findall('measure'), kept.findall('measure')):
+        have = {ET.tostring(d) for d in mk if d.tag in ('direction', 'sound')}
+        for el, pos in list(walk(mt)):
+            if el.tag == 'direction':
+                dt = el.find('direction-type')
+                if dt is None or not any(c.tag in SYSTEM for c in dt): continue
+            elif el.tag == 'sound':
+                if not any(k in JUMP_ATTRS for k in el.attrib): continue
+            else:
+                continue
+            if ET.tostring(el) in have: continue
+            # insert before the first element of the kept measure at or after `pos`
+            target = len(mk)
+            for i, (kel, kpos) in enumerate(walk(mk)):
+                if kel.tag in ('note', 'forward', 'backup', 'barline') and kpos >= pos:
+                    target = i; break
+                if kel.tag == 'barline' and kel.get('location') == 'right':
+                    target = i; break
+            mk.insert(target, copy.deepcopy(el)); n += 1
+    print(f'system marks carried from top part: {n}')
+
+def keep_only(root, partlist, preference):
+    """Keep the first part (by preference order) whose name matches; drop the rest.
+    Returns the kept name. Replaces MuseScore's 'Tenor part with the bass hidden'."""
+    names = {sp.findtext('part-name'): sp for sp in partlist.findall('score-part')}
+    pick = next((n for n in preference if n in names), None)
+    if pick is None:
+        raise SystemExit(f'--only: none of {preference} found; parts are {list(names)}')
+    top = root.find('part'); kept = root.find(f"part[@id='{names[pick].get('id')}']")
+    if kept is not top:
+        carry_system_marks(top, kept)
+    for sp in list(partlist.findall('score-part')):
+        if sp is not names[pick]:
+            part = root.find(f"part[@id='{sp.get('id')}']")
+            partlist.remove(sp); root.remove(part)
+    for pg in list(partlist.findall('part-group')):   # brackets/braces around removed parts
+        partlist.remove(pg)
+    print(f'kept only {pick!r}')
+    return pick
+
 def parse_map(s):
     out = {}
     for item in filter(None, s.split(';')):
@@ -254,6 +307,7 @@ def main():
     ap.add_argument('--names', default='', help='rename split voices: "S/A=Sopran,Alt;T/B=Tenor,Bas"')
     ap.add_argument('--explode', default='', help='split chord divisi: "Bas=Bas 1,Bas 2" (applied after --names)')
     ap.add_argument('--copy-lyrics', action='store_true', help='text-less voices borrow the text of the voice that has it')
+    ap.add_argument('--only', default='', help='keep a single part, first match wins: "Tenor 2,Tenor" (for braille)')
     a = ap.parse_args()
 
     data, inner = read(a.src)
@@ -261,8 +315,13 @@ def main():
     partlist = root.find('part-list')
     split_voices(root, partlist, parse_map(a.names), a.copy_lyrics)
     if a.explode: explode_chords(root, partlist, parse_map(a.explode))
-    fix_tie_accidentals(root)
-    hoist_jumps(root)
+    if a.only:
+        # A single-part file is for braille transcription, not for alphaTab: leave the
+        # MusicXML as MuseScore wrote it (no extra accidentals, no duplicated <sound>).
+        keep_only(root, partlist, [x.strip() for x in a.only.split(',')])
+    else:
+        fix_tie_accidentals(root)
+        hoist_jumps(root)
 
     out = ET.tostring(root, encoding='utf-8', xml_declaration=True)
     m = re.search(rb'<!DOCTYPE[^>]*>', data)
