@@ -56,10 +56,10 @@ document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T[e.dataset.t]);
 T.presets.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;$('#preset').appendChild(o);});
 
 const main=$('#main');
-const CDN='https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/';
+// Everything alphaTab needs is served from vendor/ (see patch_alphatab.py); no CDN at runtime.
 const settings={
- core:{scriptFile:new URL('vendor/alphaTab.js',location.href).href,fontDirectory:CDN+'font/'},
- player:{enablePlayer:true,enableCursor:true,enableUserInteraction:true,soundFont:CDN+'soundfont/sonivox.sf2',scrollElement:main},
+ core:{scriptFile:new URL('vendor/alphaTab.js',location.href).href,fontDirectory:new URL('vendor/font/',location.href).href},
+ player:{enablePlayer:true,enableCursor:true,enableUserInteraction:true,soundFont:new URL('vendor/soundfont/sonivox.sf3',location.href).href,scrollElement:main},
  display:{layoutMode:'page',scale:0.9}
 };
 const api=new alphaTab.AlphaTabApi($('#at'),settings);

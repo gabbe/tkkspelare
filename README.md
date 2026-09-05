@@ -30,7 +30,7 @@ The page is static, but alphaTab runs in web workers, so it has to be served
 over http:
 
 ```bash
-py patch_alphatab.py          # downloads alphaTab 1.8.4 and writes vendor/alphaTab.js
+py patch_alphatab.py          # downloads alphaTab 1.8.4, its font and soundfont into vendor/
 py -m http.server 8765
 ```
 

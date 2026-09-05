@@ -28,5 +28,5 @@ Third-party components, not covered by the license above:
   this repository; patch_alphatab.py downloads the exact release and applies a
   small, clearly marked modification (see that file). The modified source is
   the generated vendor/alphaTab.js, which carries the same MPL 2.0 terms.
-- Bravura music font and the SONiVOX soundfont are loaded from alphaTab's CDN
-  distribution under their respective licenses.
+- Bravura music font (SIL Open Font License) and the SONiVOX soundfont are
+  downloaded into vendor/ by patch_alphatab.py, with their license files.
