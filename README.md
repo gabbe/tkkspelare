@@ -125,6 +125,13 @@ rehearsal marks) are copied into the kept part. The alphaTab workarounds
 other parts. Verified on Rättnu min tid: every note, rest, tie, slur, lyric
 syllable, barline and direction matches the manual Tenor part export.
 
+## Hosting
+
+The site is static files behind HTTP basic auth on Apache; see
+[deploy/SERVER.md](deploy/SERVER.md) for the server setup and
+`deploy/spelare.thnkk.se.conf` for the site config. `deploy.py` runs the Drive
+sync and uploads the site over SSH in one command.
+
 ## patch_alphatab.py – repeats before jumps
 
 alphaTab 1.8.4 executes D.C./D.S. the first time it reaches the bar, even when
@@ -161,7 +168,6 @@ Documented so they are not rediscovered. Each has a workaround in the code.
 - Bookmarks within a song
 - Report an error in a bar to the people digitising
 - Instrument presets and soundfont selection
-- Password gate in front of the site
 
 ## License
 
