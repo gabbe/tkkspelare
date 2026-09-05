@@ -21,7 +21,7 @@ ANCHOR = (
     "\t\t\tif (this._state === 0 && !hasDirections) return false;\n"
 )
 PATCH = ANCHOR + (
-    "\t\t\t// PATCH (kammarkören): a repeat that still has iterations left in this bar\n"
+    "\t\t\t// PATCH (korspelare): a repeat that still has iterations left in this bar\n"
     "\t\t\t// is played before any jump direction placed on the same bar.\n"
     "\t\t\tif (this._state === 0) {\n"
     "\t\t\t\tconst pendingRepeatCount = masterBar.repeatCount - 1;\n"

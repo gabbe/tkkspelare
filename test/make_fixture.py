@@ -100,8 +100,8 @@ def scorepart(pid, name, abbr, prog):
 
 xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
        '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n'
-       '<score-partwise version="4.0"><work><work-title>Testsång</work-title></work>'
-       '<identification><creator type="composer">Testfixtur</creator><encoding><software>make_fixture.py</software></encoding></identification>'
+       '<score-partwise version="4.0"><work><work-title>Test song</work-title></work>'
+       '<identification><creator type="composer">Test fixture</creator><encoding><software>make_fixture.py</software></encoding></identification>'
        '<part-list>' + scorepart('P1', 'S/A', 'S/A', 53) + scorepart('P2', 'T/B', 'T/B', 53) + '</part-list>'
        + part('P1', sa_measure, 'G', '2') + part('P2', tb_measure, 'F', '4') + '</score-partwise>')
 

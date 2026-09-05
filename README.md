@@ -1,39 +1,44 @@
 # Körspelare
 
-Webbaserad övningsspelare för körsångare. Visar noterna, spelar upp dem och
-låter var och en lyfta fram sin egen stämma. Byggd på [alphaTab](https://alphatab.net)
-och MusicXML exporterad från MuseScore Studio.
+A web-based practice player for choir singers. It shows the score, plays it,
+and lets each singer bring out their own part. Built on [alphaTab](https://alphatab.net)
+and MusicXML exported from MuseScore Studio.
 
-Bakgrunden är en amatörkör som digitaliserar sina noter i MuseScore, dels för
-att göra punktskrift (.brf) till en blind sångare, dels för att alla ska kunna
-öva hemma utan att installera MuseScore.
+The background is an amateur choir digitising its sheet music in MuseScore,
+partly to produce braille music (.brf) for a blind singer, partly so that
+everyone can practise at home without installing MuseScore.
 
-## Vad spelaren kan
+The user interface is in Swedish (the choir's language). All UI strings live
+in one object at the top of the script in `index.html`, so a translation is a
+small change.
 
-- Följa noterna under uppspelning, klicka på en takt för att hoppa dit
-- Solo, tyst och volym per stämma, samt "dämpa övriga" för att höra sin egen
-  stämma tydligt med de andra i bakgrunden
-- Panorera en stämma till ena högtalaren och resten till den andra
-- Tempo 40–200 procent
-- Loopa ett markerat område, med repriser och hopp avstängda så att markeringen
-  loopar exakt de takterna
-- Byta instrument för alla stämmor (piano, kör, orgel, stråkar ...)
-- Repriser och D.C./D.S. al Coda spelas i rätt ordning
+## What the player does
 
-## Kom igång
+- Follows the score during playback; click a bar to jump there
+- Solo, mute and volume per part, plus "damp the others" to hear your own part
+  clearly with the rest in the background
+- Pan one part to one speaker and the rest to the other
+- Tempo 40–200 %
+- Loop a selected range, with repeats and jumps switched off so the selection
+  loops exactly those bars
+- Change the instrument for all parts (piano, choir, organ, strings ...)
+- Repeats and D.C./D.S. al Coda are played in the right order
 
-Sidan är statisk, men alphaTab kör i web workers och måste serveras över http:
+## Getting started
+
+The page is static, but alphaTab runs in web workers, so it has to be served
+over http:
 
 ```bash
-py patch_alphatab.py          # hämtar alphaTab 1.8.4 och skriver vendor/alphaTab.js
+py patch_alphatab.py          # downloads alphaTab 1.8.4 and writes vendor/alphaTab.js
 py -m http.server 8765
 ```
 
-Öppna http://127.0.0.1:8765/ . Utan eget notbibliotek visas testfixturen
-`test/fixture.mxl`, en egenkomponerad SATB-snutt med repris, To Coda, D.C. al
-Coda, basdivisi och en bindning över taktstreck.
+Open http://127.0.0.1:8765/ . Without a library of your own the player shows
+the test fixture `test/fixture.mxl`, an original ten-bar SATB snippet with a
+repeat, To Coda, D.C. al Coda, bass divisi and a tie across a bar line.
 
-Eget bibliotek: lägg `.mxl`-filer i `noter/` och skapa `library.json`:
+Your own library: put `.mxl` files in `noter/` and create `library.json`:
 
 ```json
 [
@@ -42,71 +47,93 @@ Eget bibliotek: lägg `.mxl`-filer i `noter/` och skapa `library.json`:
 ]
 ```
 
-Båda ignoreras av git. Noter ligger aldrig i repot.
+Both are ignored by git. Sheet music never goes into the repository.
 
-## prepare.py – gör MuseScore-exporten spelbar per stämma
+## prepare.py – make a MuseScore export playable per part
 
-alphaTab mixar per part, inte per stämma inom en part. Körnoter skrivs ofta som
-S/A på ett system och T/B på ett annat. `prepare.py` skriver om exporten utan
-att röra MuseScore-filen. Standardbiblioteket räcker, ingen venv.
+alphaTab mixes per part, not per voice within a part. Choral scores are often
+written as S/A on one staff and T/B on another. `prepare.py` rewrites the
+export without touching the MuseScore file. Standard library only, no venv.
 
 ```bash
 py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "Bas=Bas 1,Bas 2" --copy-lyrics
 ```
 
-1. Parts med flera stämmor delas i en part per stämma. `--names` namnger dem.
-2. `--explode` delar divisi som är skrivet som ackord (Bas 1 och Bas 2 på samma
-   skaft) i en part per ackordton, översta tonen först. Unisont går till båda.
-3. `--copy-lyrics` ger en stämma utan text samma text som stämman som bär
-   texten, ton för ton där de börjar samtidigt.
-4. Bundna toner som fortsätter in i ny takt får explicit förtecken från
-   bindningens början. alphaTab stavar annars efter tonarten, så ett fiss bundet
-   över taktstreck i en tonart med b-förtecken ritas som gess i takt två.
-   alphaTab döljer det överflödiga tecknet på bundna toner.
-5. Hopp (D.C., D.S., To Coda, Coda, Fine, Segno) som MuseScore skriver som
-   `<sound>` inuti `<direction>` kopieras till taktnivå, som är det enda stället
-   alphaTab läser dem. Spelaren gör sedan "D.C." plus "To Coda" till "D.C. al
-   Coda" (`fixJumps` i index.html).
+1. Parts holding several voices are split into one part per voice. `--names`
+   names them.
+2. `--explode` splits divisi written as chords (Bass 1 and Bass 2 on one stem)
+   into one part per chord note, top note first. Unison notes go to every part.
+3. `--copy-lyrics` gives a voice without text the lyrics of the voice that has
+   them, note for note where both start at the same time.
+4. Tied notes that continue into a new bar get an explicit accidental copied
+   from the start of the tie. alphaTab otherwise spells notes from the key
+   signature, so an F# tied over a bar line in a flat key is drawn as Gb in the
+   second bar. alphaTab hides the redundant sign on tied notes.
+5. Jumps (D.C., D.S., To Coda, Coda, Fine, Segno) that MuseScore writes as
+   `<sound>` inside `<direction>` are copied to measure level, the only place
+   alphaTab reads them. The player then turns "D.C." plus "To Coda" into
+   "D.C. al Coda" (`fixJumps` in index.html).
 
-Punkt 3 är en gissning per ton: där stämmorna har olika rytm får en ton utan
-samtidig start i grannstämman ingen text. Kontrollera per sång.
+Step 3 is a guess per note: where the voices have different rhythms, a note
+with no simultaneous onset in the neighbouring voice gets no text. Check each
+song.
 
-## patch_alphatab.py – repriser före hopp
+## patch_alphatab.py – repeats before jumps
 
-alphaTab 1.8.4 utför D.C./D.S. första gången den når takten, även när takten
-också avslutar en repris som inte spelats färdigt. Rätt är repris först, sedan
-hopp. Skriptet hämtar exakt version från CDN och lägger in kontrollen i
-`MidiPlaybackController`. Det avbryter om ankartexten inte hittas exakt en gång,
-alltså när en ny alphaTab-version ändrat koden. Tas bort när felet är rättat
-uppströms. Efter hoppet spelas repriser inte om, som i MuseScore.
+alphaTab 1.8.4 executes D.C./D.S. the first time it reaches the bar, even when
+that bar also closes a repeat that has not been played the required number of
+times. The convention (and MuseScore) is: finish the repeats, then jump. The
+script downloads the exact release from the CDN and inserts the check in
+`MidiPlaybackController`. It aborts if the anchor text is not found exactly
+once, which is what happens when a new alphaTab version changes the code.
+Remove it once fixed upstream. After the jump, repeats are not replayed, as in
+MuseScore.
 
-## Kända alphaTab-egenheter (1.8.4)
+## Known alphaTab quirks (1.8.4)
 
-Dokumenterade här för att inte upptäckas igen. Alla har en lösning i koden.
+Documented so they are not rediscovered. Each has a workaround in the code.
 
-- Hopp går före repris i samma takt. Se patch_alphatab.py.
-- `<sound>` inuti `<direction>` läses bara för tempo. Se prepare.py punkt 5.
-- Toner stavas efter tonart, inte efter MusicXML:s step och alter. Se punkt 4.
-- Instrumentbyte: importen lagrar filens instrument som en beat-automation som
-  skriver över `playbackInfo.program`. Båda måste ändras.
-- `playbackInfo.volume` används både som MIDI-kanalvolym vid generering och som
-  mixervolym som alphaTab lägger på igen i `readyForPlayback` efter varje
-  MIDI-laddning, efter `midiLoaded`. Spelaren genererar med full kanalvolym och
-  sätter sedan fältet till mixernivån.
-- Ett uppspelningsområde lagras i ticks, som flyttar sig när repriser slås av
-  eller på. Spelaren minns området som takt plus offset och mappar om.
-- `api.midiLoaded.on(...)` registrerat efter första laddningen kraschar med
-  oändlig rekursion i `loadedMidiInfo` (skrivfel i worker-proxyn). Registrera
-  före första laddningen.
+- A jump takes precedence over a repeat in the same bar. See patch_alphatab.py.
+- `<sound>` inside `<direction>` is read for tempo only. See prepare.py step 5.
+- Notes are spelled from the key signature, not from MusicXML step and alter.
+  See step 4.
+- Instrument change: the importer stores the file's instrument as a beat
+  automation that overrides `playbackInfo.program`. Both must be changed.
+- `playbackInfo.volume` is used both as MIDI channel volume when generating
+  and as mixer volume that alphaTab re-applies in `readyForPlayback` after
+  every MIDI load, after `midiLoaded`. The player generates with full channel
+  volume and then sets the field to the mixer level.
+- A playback range is stored in ticks, which move when repeats are switched on
+  or off. The player remembers the range as bar plus offset and re-maps it.
+- `api.midiLoaded.on(...)` registered after the first load crashes with
+  infinite recursion in `loadedMidiInfo` (a typo in the worker proxy).
+  Register before the first load.
 
-## Planerat
+## Planned
 
-- Bibliotek som speglar körens Google Drive, med "Aktuellt" som startvy
-- Bokmärken i en sång
-- Rapportera fel i en takt till dem som digitaliserar
-- Instrument-presets och val av soundfont
-- Lösenordsskydd framför sidan
+- Library mirroring the choir's Google Drive, with the current folder as the
+  start view
+- Bookmarks within a song
+- Report an error in a bar to the people digitising
+- Instrument presets and soundfont selection
+- Password gate in front of the site
 
-## Licens
+## License
 
-MIT, se LICENSE. alphaTab är MPL 2.0 och ingår inte i repot.
+MIT, see LICENSE. alphaTab is MPL 2.0 and is not part of the repository.
+
+---
+
+## För körens digitaliserare (svenska)
+
+Så här gör du en ny sång spelbar:
+
+1. Exportera från MuseScore som komprimerad MusicXML (.mxl).
+2. Kör `prepare.py` på filen. Ange stämnamnen med `--names`, och `--explode`
+   om basen eller någon annan stämma är delad som ackord. Lägg alltid till
+   `--copy-lyrics` om texten bara ligger på en av stämmorna i systemet.
+3. Lägg resultatet i `noter/` och en rad i `library.json`.
+4. Lyssna igenom i spelaren. Kontrollera särskilt repriser, D.C. och att texten
+   hamnade rätt på den stämma som inte hade egen text.
+
+Noterna får inte checkas in i git. Mappen `noter/` och `library.json` ignoreras.

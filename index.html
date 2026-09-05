@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sv"><head><meta charset="utf-8"><title>Körövning PoC (alphaTab)</title>
+<html lang="sv"><head><meta charset="utf-8"><title>Körspelare</title>
 <style>
 body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-columns:320px 1fr;height:100vh}
 #side{padding:12px;border-right:1px solid #ccc;overflow:auto;font-size:14px}
@@ -16,34 +16,43 @@ label{display:block;margin:4px 0}
 #summary{background:#eef;padding:6px;border-radius:6px;margin:6px 0;min-height:2.5em}
 </style></head><body>
 <div id="side">
-<h3>Körövning – PoC</h3>
-<label>Fil:
+<h3 id="heading"></h3>
+<label><span data-t="file"></span>
 <select id="file"></select></label>
 <div><button id="play">▶ / ❚❚</button><button id="stop">■</button>
-<label><input type="checkbox" id="loop"> Loopa markerat område (dra över takter)</label>
-<label><input type="checkbox" id="linear"> Spela utan repriser och hopp</label>
-<label><input type="checkbox" id="metro"> Metronom</label></div>
-<label>Tempo: <span id="speedv">100</span>% <button id="speedreset">100%</button>
+<label><input type="checkbox" id="loop"> <span data-t="loop"></span></label>
+<label><input type="checkbox" id="linear"> <span data-t="linear"></span></label>
+<label><input type="checkbox" id="metro"> <span data-t="metronome"></span></label></div>
+<label><span data-t="tempo"></span> <span id="speedv">100</span>% <button id="speedreset">100%</button>
 <input type="range" id="speed" min="40" max="200" value="100"></label>
-<label>Instrument-preset:
-<select id="preset">
-<option value="">(som i filen)</option>
-<option value="0">Piano</option>
-<option value="52">Choir Aahs</option>
-<option value="53">Voice Oohs</option>
-<option value="19">Kyrkorgel</option>
-<option value="73">Flöjt</option>
-<option value="48">Stråkar</option>
-</select></label>
+<label><span data-t="preset"></span>
+<select id="preset"></select></label>
 <div id="summary"></div>
 <div id="tracks"></div>
-<p id="status">laddar…</p>
+<p id="status"></p>
 </div>
 <div id="main"><div id="at"></div></div>
-<!-- lokalt patchad alphaTab (repriser före D.C.), se patch_alphatab.py -->
+<!-- Locally patched alphaTab (repeats before jumps), see patch_alphatab.py -->
 <script src="vendor/alphaTab.js"></script>
 <script>
+// ---- UI strings (Swedish; the choir's language). Everything the user sees is here. ----
+const T={
+ heading:'Körspelare', file:'Fil:', loop:'Loopa markerat område (dra över takter)',
+ linear:'Spela utan repriser och hopp', metronome:'Metronom', tempo:'Tempo:', preset:'Instrument:',
+ loading:'laddar…', loaded:(title,n)=>`Laddad: ${title||'(ingen titel)'} – ${n} stämmor`, audioReady:' – ljud klart',
+ error:'FEL: ', part:i=>`Stämma ${i}`, solo:'Solo', mute:'Tyst', focus:'Dämpa övriga till 25%',
+ pan:'Pan:', left:'Vänster', center:'Mitt', right:'Höger', volume:'Volym',
+ sumSolo:'Solo: ', sumMute:'Tyst: ', sumDamped:'Dämpat: ', sumPan:'Pan: ', panLeft:'vänster', panRight:'höger',
+ sumNeutral:'Alla stämmor hörs lika, i mitten.',
+ presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
+ fixture:[{title:'Testsång (fixtur: repris, D.C. al Coda, divisi)',file:'test/fixture-prepared.mxl'},
+          {title:'Testsång, oförberedd export (S/A + T/B)',file:'test/fixture.mxl'}]
+};
 const $=s=>document.querySelector(s);
+$('#heading').textContent=T.heading; $('#status').textContent=T.loading;
+document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T[e.dataset.t]);
+T.presets.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;$('#preset').appendChild(o);});
+
 const main=$('#main');
 const CDN='https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/';
 const settings={
@@ -53,8 +62,8 @@ const settings={
 };
 const api=new alphaTab.AlphaTabApi($('#at'),settings);
 let score=null;
-// Mixer state lives here, not in the synth: alphaTab resets channel volumes every
-// time the MIDI is regenerated (instrument or pan change), so we re-apply it.
+// Mixer state lives here, not in the synth: alphaTab re-applies its own idea of the
+// volumes every time the MIDI is regenerated (instrument or pan change).
 let mix={vol:[],mute:[],solo:[],pan:[]};
 
 function fixJumps(s){
@@ -68,23 +77,25 @@ function fixJumps(s){
  swap(D.JumpDalSegno,D.JumpDalSegnoAlCoda,D.JumpDalSegnoAlFine);
 }
 api.scoreLoaded.on(s=>{
- score=s; fixJumps(s);
+ score=s; saved=null; fixJumps(s);
  mix={vol:s.tracks.map(()=>1),mute:s.tracks.map(()=>false),solo:s.tracks.map(()=>false),pan:s.tracks.map(()=>8)};
  api.renderTracks(s.tracks); renderTracks();
- $('#status').textContent=`Laddad: ${s.title||'(ingen titel)'} – ${s.tracks.length} stämmor`;
+ loadedText=T.loaded(s.title,s.tracks.length); $('#status').textContent=loadedText;
+ if($('#linear').checked) setLinear(true);
 });
+let loadedText='';
+// Must be registered before the first load: registering later hits an alphaTab bug
+// (infinite recursion in the loadedMidiInfo getter of the worker proxy).
 api.midiLoaded.on(()=>applyMix());
-api.playerReady.on(()=>$('#status').textContent+=' – ljud klart');
-api.error.on(e=>{$('#status').textContent='FEL: '+e.message;console.error(e)});
+api.playerReady.on(()=>$('#status').textContent=loadedText+T.audioReady);
+api.error.on(e=>{$('#status').textContent=T.error+e.message;console.error(e)});
 api.playerPositionChanged.on(e=>{const p=$('#pos'); if(p) p.textContent=Math.round(e.currentTime/1000)+'s / '+Math.round(e.endTime/1000)+'s'});
 
 $('#file').onchange=e=>api.load(e.target.value);
 // Library: library.json (local, git-ignored) lists {title, file}. Without it the
 // bundled test fixture is shown.
-const FIXTURE=[{title:'Testsång (fixtur: repris, D.C. al Coda, divisi)',file:'test/fixture-prepared.mxl'},
-               {title:'Testsång, oförberedd export (S/A + T/B)',file:'test/fixture.mxl'}];
 fetch('library.json').then(r=>r.ok?r.json():[]).catch(()=>[]).then(lib=>{
- const items=lib.concat(FIXTURE); const sel=$('#file');
+ const items=lib.concat(T.fixture); const sel=$('#file');
  items.forEach(it=>{const o=document.createElement('option');o.value=it.file;o.textContent=it.title;sel.appendChild(o);});
  api.load(items[0].file);
 });
@@ -99,11 +110,12 @@ $('#speedreset').onclick=()=>setSpeed(100);
 $('#preset').onchange=e=>{
  if(e.target.value==='')return; const prog=+e.target.value; const AT=alphaTab.model.AutomationType;
  score.tracks.forEach(t=>{t.playbackInfo.program=prog;
-  // the importer also stores the file's instrument as a beat automation, which
-  // overrides playbackInfo.program at tick 0, so update those too
+  // The importer also stores the file's instrument as a beat automation, which
+  // overrides playbackInfo.program at tick 0, so update those too.
   t.staves.forEach(st=>st.bars.forEach(b=>b.voices.forEach(v=>v.beats.forEach(bt=>bt.automations.forEach(a=>{if(a.type===AT.Instrument)a.value=prog;})))))});
  regenerate();
 };
+
 function regenerate(){
  // playbackInfo.volume is used twice by alphaTab: as MIDI channel volume when the
  // file is generated, and as mixer volume re-applied in readyForPlayback after every
@@ -121,7 +133,7 @@ function applyMix(){
  paint();
 }
 
-// ---- linear mode: play without repeats and jumps (used while looping a selection) ----
+// ---- Linear mode: play without repeats and jumps (used while looping a selection) ----
 let saved=null;
 function setLinear(on){
  if(on&&!saved){
@@ -150,6 +162,8 @@ function setRangeBars(range){
  const s=first(range.start.index), e=first(range.end.index); if(!s||!e) return;
  api.playbackRange={startTick:s.start+range.start.offset,endTick:e.start+range.end.offset+1};
 }
+
+// ---- Mixer UI ----
 function paint(){
  document.querySelectorAll('.track').forEach((d,i)=>{
   d.querySelector('[data-a=solo]').classList.toggle('on',mix.solo[i]);
@@ -160,21 +174,21 @@ function paint(){
  });
  const n=i=>score.tracks[i].name;
  const parts=[];
- const solo=mix.solo.map((s,i)=>s?n(i):null).filter(Boolean); if(solo.length)parts.push('Solo: '+solo.join(', '));
- const mute=mix.mute.map((s,i)=>s?n(i):null).filter(Boolean); if(mute.length)parts.push('Tyst: '+mute.join(', '));
- const low=mix.vol.map((v,i)=>v<1?`${n(i)} ${Math.round(v*100)}%`:null).filter(Boolean); if(low.length)parts.push('Dämpat: '+low.join(', '));
- const pan=mix.pan.map((p,i)=>p!==8?`${n(i)} ${p<8?'vänster':'höger'}`:null).filter(Boolean); if(pan.length)parts.push('Pan: '+pan.join(', '));
- $('#summary').textContent=parts.length?parts.join(' · '):'Alla stämmor hörs lika, i mitten.';
+ const solo=mix.solo.map((s,i)=>s?n(i):null).filter(Boolean); if(solo.length)parts.push(T.sumSolo+solo.join(', '));
+ const mute=mix.mute.map((s,i)=>s?n(i):null).filter(Boolean); if(mute.length)parts.push(T.sumMute+mute.join(', '));
+ const low=mix.vol.map((v,i)=>v<1?`${n(i)} ${Math.round(v*100)}%`:null).filter(Boolean); if(low.length)parts.push(T.sumDamped+low.join(', '));
+ const pan=mix.pan.map((p,i)=>p!==8?`${n(i)} ${p<8?T.panLeft:T.panRight}`:null).filter(Boolean); if(pan.length)parts.push(T.sumPan+pan.join(', '));
+ $('#summary').textContent=parts.length?parts.join(' · '):T.sumNeutral;
 }
 function renderTracks(){
  const box=$('#tracks');box.innerHTML='<p id="pos"></p>';
  score.tracks.forEach((t,i)=>{
   const d=document.createElement('div');d.className='track';
-  d.innerHTML=`<b>${t.name||'Stämma '+(i+1)}</b>
-   <button data-a="solo">Solo</button><button data-a="mute">Tyst</button>
-   <button data-a="focus">Dämpa övriga till 25%</button><br>
-   Pan: <button data-a="L">Vänster</button><button data-a="C">Mitt</button><button data-a="R">Höger</button><br>
-   Volym <input type="range" min="0" max="100" value="100" data-a="vol">`;
+  d.innerHTML=`<b>${t.name||T.part(i+1)}</b>
+   <button data-a="solo">${T.solo}</button><button data-a="mute">${T.mute}</button>
+   <button data-a="focus">${T.focus}</button><br>
+   ${T.pan} <button data-a="L">${T.left}</button><button data-a="C">${T.center}</button><button data-a="R">${T.right}</button><br>
+   ${T.volume} <input type="range" min="0" max="100" value="100" data-a="vol">`;
   d.onclick=ev=>{const a=ev.target.dataset.a;if(!a||a==='vol')return;
    if(a==='solo'){mix.solo[i]=!mix.solo[i];}
    if(a==='mute'){mix.mute[i]=!mix.mute[i];}
