@@ -39,8 +39,10 @@ What it does, in order:
      To Coda, Coda, Segno, Fine, rehearsal marks) are carried into the kept
      part. Steps 4 and 5 are alphaTab workarounds and are skipped with --only.
 """
-import argparse, copy, re, zipfile
+import argparse, copy, re, sys, zipfile
 import xml.etree.ElementTree as ET
+try: sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception: pass
 
 STEP = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
 JUMP_ATTRS = ('dacapo', 'dalsegno', 'tocoda', 'coda', 'segno', 'fine')
@@ -122,6 +124,15 @@ def replace_part(root, partlist, sp, part, replacements):
     partlist.remove(sp); root.remove(part)
     for k, (nsp, npart) in enumerate(replacements):
         partlist.insert(si + k, nsp); root.insert(pi + k, npart)
+
+VOCAL = re.compile(r'(sopr|alt|tenor|t[ée]nor|bas|bar[iy]ton|solo|voice|voix|choir|ch[oö]r|k[oö]r|damer|herrar|women|men|cantus|discant|mezzo|^s\b|^a\b|^t\b|^b\b|^s[1-2ai]|^a[1-2i]|^t[1-2i]|^b[1-2i])', re.I)
+
+def is_vocal(part, name):
+    """Only vocal parts are split into voices, given borrowed text, or unison-filled.
+    A piano or organ part keeps its voices as they are."""
+    if VOCAL.search(name or ''): return True
+    notes = [n for n in part.iter('note') if n.find('rest') is None]
+    return bool(notes) and sum(1 for n in notes if n.findall('lyric')) / len(notes) >= 0.05
 
 # ---------- 1. voices -> parts ----------
 def lyric_map(measure, voice):
@@ -218,10 +229,21 @@ def split_measure(measure, voice, donor=None, unison_from=None, report=None, top
     for v in m.iter('voice'): v.text = '1'
     return m
 
+def bar_ranges(bars):
+    """['1','2','3','7','9','10'] -> '1-3, 7, 9-10'"""
+    nums = sorted(int(b) for b in bars); out = []; i = 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1: j += 1
+        out.append(str(nums[i]) if i == j else f'{nums[i]}-{nums[j]}'); i = j + 1
+    return ', '.join(out)
+
 def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
     for sp in list(partlist.findall('score-part')):
         pid = sp.get('id'); part = root.find(f"part[@id='{pid}']")
         pname = norm(sp.findtext('part-name')) or pid
+        if not is_vocal(part, pname):
+            print(f'{pname}: instrumental part, kept as is'); continue
         per_voice = {}
         for n in part.iter('note'):
             if n.find('rest') is None: per_voice[voice_of(n)] = per_voice.get(voice_of(n), 0) + 1
@@ -233,7 +255,7 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
             if v != '1' and cnt < 3 and cnt / total < 0.02:
                 bars = sorted({m.get('number') for m in part.findall('measure') for n in m.findall('note')
                                if voice_of(n) == v and n.find('rest') is None}, key=int)
-                print(f'{pname}: voice {v} has only {cnt} note(s), in bar(s) {", ".join(bars)}; '
+                print(f'{pname}: voice {v} has only {cnt} note(s), in bar(s) {bar_ranges(bars)}; '
                       f'treated as a stray voice and dropped. Check the score in MuseScore.')
                 for m in part.findall('measure'):
                     for n in [n for n in m if n.tag == 'note' and voice_of(n) == v]: m.remove(n)
@@ -259,7 +281,7 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
                 what = {'unison': 'copied from voice %s (unison)' % voices[0],
                         'divisi': 'voice-%s chords split, %s note kept' % (voices[0], 'top' if v == voices[0] else 'bottom'),
                         'rest': 'whole-measure rest inserted'}[kind]
-                print(f'   {nsp.findtext("part-name")}: bars {", ".join(bars)} -> {what}')
+                print(f'   {nsp.findtext("part-name")}: bars {bar_ranges(bars)} -> {what}')
             reps.append((nsp, npart))
         replace_part(root, partlist, sp, part, reps)
 
@@ -276,7 +298,7 @@ def borrow_lyrics(root, partlist):
     parts = {norm(sp.findtext('part-name')): root.find(f"part[@id='{sp.get('id')}']") for sp in partlist.findall('score-part')}
     donors = {n: p for n, p in parts.items() if part_lyric_count(p) > 0}
     for name, part in parts.items():
-        if part_lyric_count(part) > 0 or not donors: continue
+        if part_lyric_count(part) > 0 or not donors or not is_vocal(part, name): continue
         # prefer a part sharing the first word of the name (Bas 1 <- Bas 2), else the one with most text
         word = name.split()[0].lower() if name else ''
         related = [n for n in donors if n.split()[0].lower() == word]

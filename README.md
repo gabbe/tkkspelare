@@ -38,16 +38,40 @@ Open http://127.0.0.1:8765/ . Without a library of your own the player shows
 the test fixture `test/fixture.mxl`, an original ten-bar SATB snippet with a
 repeat, To Coda, D.C. al Coda, bass divisi and a tie across a bar line.
 
-Your own library: put `.mxl` files in `noter/` and create `library.json`:
+Your own library is built by `sync.py` (below) into `noter/` and
+`library.json`. Both are ignored by git. Sheet music never goes into the
+repository.
 
-```json
-[
-  {"title": "Rättnu min tid", "file": "noter/rattnu.mxl"},
-  {"title": "Stjärntändningen", "file": "noter/stjarn.mxl"}
-]
+## sync.py – mirror the MuseScore scores into the library
+
+```bash
+py sync.py --only-current        # the "Aktuellt" folder, about a minute for 30 scores
+py sync.py                       # everything under "2. MuseScore"
+py sync.py --braille-dir ../BRF/New   # also write one Tenor file per score for SMB
 ```
 
-Both are ignored by git. Sheet music never goes into the repository.
+For every `.mscz` it runs MuseScore Studio's command-line export, then
+`prepare.py`, and writes the result under `noter/` mirroring the Drive
+folders. `library.json` lists title, file, folder, whether the score is in the
+current repertoire, and the notes prepare.py printed about the score (voices
+split, text borrowed, stray voices dropped), which the player shows to the
+digitisers. Scores are re-exported only when the `.mscz` changed.
+
+Paths for this machine go in `sync.local.json` (git-ignored):
+
+```json
+{"source": "G:/.../Digitala Noter/2. MuseScore",
+ "musescore": "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"}
+```
+
+Per-song exceptions go in `songs.json` (committed, it holds titles only),
+keyed by the `.mscz` file name without extension: `title`, `names` (extra
+two-voice staff names), `explode` (divisi written as chords), `skip`, `keep`
+(include a file that looks like a single-part score), `braille_part`.
+Common staff names (S/A, T/B, Soprano/alto, Damer, Herrar ...) are mapped to
+Sopran, Alt, Tenor, Bas by default. Files named "... - Tenor" or "...Tenor2"
+are treated as hand-made single-part scores and skipped, since the braille
+file is produced from the full score.
 
 ## prepare.py – make a MuseScore export playable per part
 
@@ -134,8 +158,6 @@ Documented so they are not rediscovered. Each has a workaround in the code.
 
 ## Planned
 
-- Library mirroring the choir's Google Drive, with the current folder as the
-  start view
 - Bookmarks within a song
 - Report an error in a bar to the people digitising
 - Instrument presets and soundfont selection
@@ -151,11 +173,14 @@ MIT, see LICENSE. alphaTab is MPL 2.0 and is not part of the repository.
 
 Så här gör du en ny sång spelbar:
 
-1. Exportera från MuseScore som komprimerad MusicXML (.mxl).
-2. Kör `prepare.py` på filen. Ange stämnamnen med `--names`, och `--explode`
-   om basen eller någon annan stämma är delad som ackord. Lägg alltid till
-   `--copy-lyrics` om texten bara ligger på en av stämmorna i systemet.
-3. Lägg resultatet i `noter/` och en rad i `library.json`.
+1. Spara sången som vanligt i MuseScore i mappen "2. MuseScore" på Drive
+   (i "Aktuellt" om den är på repertoaren). Ingen export behövs.
+2. Kör `py sync.py --only-current`. Skriptet exporterar, delar upp stämmorna
+   och skriver biblioteket.
+3. Läs anmärkningarna som skrivs ut, eller titta på sånger märkta ⚠ i
+   spelaren: där står vad skriptet gissat (kopierad text, delade ackord,
+   bortplockade lösa stämmor). Rätta i MuseScore om något är fel, eller lägg
+   en rad i `songs.json` om sången behöver egna inställningar.
 4. Lyssna igenom i spelaren. Kontrollera särskilt repriser, D.C. och att texten
    hamnade rätt på den stämma som inte hade egen text.
 

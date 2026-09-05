@@ -18,7 +18,7 @@ label{display:block;margin:4px 0}
 <div id="side">
 <h3 id="heading"></h3>
 <label><span data-t="file"></span>
-<select id="file"></select></label>
+<select id="file" style="max-width:290px"></select></label>
 <div><button id="play">▶ / ❚❚</button><button id="stop">■</button>
 <label><input type="checkbox" id="loop"> <span data-t="loop"></span></label>
 <label><input type="checkbox" id="linear"> <span data-t="linear"></span></label>
@@ -30,6 +30,7 @@ label{display:block;margin:4px 0}
 <div id="summary"></div>
 <div id="tracks"></div>
 <p id="status"></p>
+<pre id="notes" style="white-space:pre-wrap;font-size:11px;color:#666"></pre>
 </div>
 <div id="main"><div id="at"></div></div>
 <!-- Locally patched alphaTab (repeats before jumps), see patch_alphatab.py -->
@@ -45,6 +46,7 @@ const T={
  sumSolo:'Solo: ', sumMute:'Tyst: ', sumDamped:'Dämpat: ', sumPan:'Pan: ', panLeft:'vänster', panRight:'höger',
  sumNeutral:'Alla stämmor hörs lika, i mitten.',
  presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
+ rootFolder:'Övrigt', fixtureFolder:'Test', notesHeading:'Anmärkningar från förberedningen (för digitaliserarna):',
  fixture:[{title:'Testsång (fixtur: repris, D.C. al Coda, divisi)',file:'test/fixture-prepared.mxl'},
           {title:'Testsång, oförberedd export (S/A + T/B)',file:'test/fixture.mxl'}]
 };
@@ -92,13 +94,20 @@ api.error.on(e=>{$('#status').textContent=T.error+e.message;console.error(e)});
 api.playerPositionChanged.on(e=>{const p=$('#pos'); if(p) p.textContent=Math.round(e.currentTime/1000)+'s / '+Math.round(e.endTime/1000)+'s'});
 
 $('#file').onchange=e=>api.load(e.target.value);
-// Library: library.json (local, git-ignored) lists {title, file}. Without it the
-// bundled test fixture is shown.
+// Library: library.json (written by sync.py, git-ignored) lists {title, file, folder,
+// current, warnings}. Grouped by folder, current repertoire first. Without a library
+// the bundled test fixture is shown.
 fetch('library.json').then(r=>r.ok?r.json():[]).catch(()=>[]).then(lib=>{
- const items=lib.concat(T.fixture); const sel=$('#file');
- items.forEach(it=>{const o=document.createElement('option');o.value=it.file;o.textContent=it.title;sel.appendChild(o);});
+ const items=lib.concat(T.fixture.map(f=>({...f,folder:T.fixtureFolder}))); const sel=$('#file');
+ const groups=new Map();
+ items.forEach(it=>{const g=it.folder||T.rootFolder; if(!groups.has(g)) groups.set(g,[]); groups.get(g).push(it);});
+ groups.forEach((list,g)=>{const og=document.createElement('optgroup'); og.label=g;
+  list.forEach(it=>{const o=document.createElement('option');o.value=it.file;o.textContent=it.title+(it.warnings&&it.warnings.length?' ⚠':'');o.title=(it.warnings||[]).join('\n');og.appendChild(o);});
+  sel.appendChild(og);});
+ window.libraryItems=items;
  api.load(items[0].file);
 });
+$('#file').addEventListener('change',e=>{const it=(window.libraryItems||[]).find(i=>i.file===e.target.value); $('#notes').textContent=it&&it.warnings&&it.warnings.length?T.notesHeading+'\n'+it.warnings.join('\n'):'';});
 $('#play').onclick=()=>api.playPause();
 $('#stop').onclick=()=>api.stop();
 $('#loop').onchange=e=>{api.isLooping=e.target.checked; if(e.target.checked){$('#linear').checked=true;} setLinear($('#linear').checked);};

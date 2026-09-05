@@ -20,3 +20,6 @@ Thumbs.db
 
 # Hand-written four-bar repro snippets for upstream bug reports (no copyrighted music)
 !upstream-issues/repro/*.musicxml
+
+# machine-specific paths for sync.py
+sync.local.json
