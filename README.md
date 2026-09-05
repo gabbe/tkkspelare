@@ -56,7 +56,7 @@ written as S/A on one staff and T/B on another. `prepare.py` rewrites the
 export without touching the MuseScore file. Standard library only, no venv.
 
 ```bash
-py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "Bas=Bas 1,Bas 2" --copy-lyrics
+py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "Bas=Bas 1,Bas 2" --copy-lyrics --unison-fill
 ```
 
 1. Parts holding several voices are split into one part per voice. `--names`
@@ -65,6 +65,11 @@ py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "B
    into one part per chord note, top note first. Unison notes go to every part.
 3. `--copy-lyrics` gives a voice without text the lyrics of the voice that has
    them, note for note where both start at the same time.
+   A bar in which a voice has no notes gets a whole-measure rest, or with
+   `--unison-fill` the choral shorthand is resolved: voice 1 is copied
+   (unison), and where voice 1 holds chords in such a bar the top note goes to
+   the upper part and the bottom note to the lower one. The bars are listed
+   either way.
 4. Tied notes that continue into a new bar get an explicit accidental copied
    from the start of the tie. alphaTab otherwise spells notes from the key
    signature, so an F# tied over a bar line in a flat key is drawn as Gb in the

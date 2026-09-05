@@ -16,8 +16,10 @@ What it does, in order:
   3. --copy-lyrics: a voice without text borrows the lyrics of the voice that has
      them, note for note where both start at the same time.
      A bar in which a voice has no notes at all gets a whole-measure rest, or
-     with --unison-fill a copy of voice 1 (choral shorthand for unison). The
-     bars are listed either way, so the digitiser can check.
+     with --unison-fill the choral shorthand is resolved: voice 1 is copied
+     (unison), and where voice 1 holds chords in such a bar the top note goes
+     to the upper part and the bottom note to the lower one (S/A on one stem).
+     The bars are listed either way, so the digitiser can check.
   4. Tied notes that continue into a new bar get an explicit <accidental> copied
      from the start of the tie.  alphaTab spells notes from the key signature
      unless an <accidental> is present, so without this an F# tied over a bar
@@ -123,7 +125,27 @@ def measure_length(measure):
     return max([pos + (duration(el) if el.tag in ('note', 'forward') and not is_chord_note(el) and not is_grace(el) else 0)
                 for el, pos in walk(measure)] or [0])
 
-def split_measure(measure, voice, donor=None, unison_from=None, report=None):
+def chord_groups(notes):
+    """Group a note list into chords: a note followed by its <chord/> notes."""
+    groups = []
+    for n in notes:
+        if is_chord_note(n) and groups: groups[-1].append(n)
+        else: groups.append([n])
+    return groups
+
+def pick_from_chord(group, highest):
+    """One note out of a chord group, with the written first note's lyrics/beams if it lacks them."""
+    if len(group) == 1: return copy.deepcopy(group[0])
+    ordered = sorted(group, key=lambda n: -(pitch_value(n) or 0))
+    pick = copy.deepcopy(ordered[0] if highest else ordered[-1])
+    c = pick.find('chord')
+    if c is not None: pick.remove(c)
+    for tag in ('lyric', 'beam', 'notations', 'stem'):
+        if not pick.findall(tag):
+            for extra in group[0].findall(tag): insert_ordered(pick, copy.deepcopy(extra))
+    return pick
+
+def split_measure(measure, voice, donor=None, unison_from=None, report=None, top_of_shorthand=False):
     lyr = lyric_map(measure, donor) if donor else {}
     m = ET.Element('measure', measure.attrib)
     mlen = measure_length(measure)
@@ -132,16 +154,27 @@ def split_measure(measure, voice, donor=None, unison_from=None, report=None):
     # kept voice is re-timed from scratch: a gap before a kept note becomes a
     # <forward> of exactly that gap, and nothing is emitted after the last note.
     emitted = 0
+    notes_here = [el for el in measure if el.tag == 'note']
+    shorthand = top_of_shorthand and all(voice_of(n) == voice for n in notes_here) and any(is_chord_note(n) for n in notes_here)
+    if shorthand and report is not None: report.setdefault('divisi', []).append(measure.get('number'))
+    skip = set(); skip_map = {}
+    if shorthand:
+        for g in chord_groups([n for n in notes_here if voice_of(n) == voice]):
+            if len(g) > 1:
+                keep = pick_from_chord(g, highest=True)
+                for n in g: skip.add(id(n))
+                skip_map[id(g[0])] = keep
     for el, pos in walk(measure):
         tag = el.tag
         if tag in ('backup', 'forward'): continue
         if tag == 'note':
             if voice_of(el) != voice: continue
+            if id(el) in skip and id(el) not in skip_map: continue
             if pos > emitted:
                 fw = ET.SubElement(m, 'forward'); ET.SubElement(fw, 'duration').text = str(pos - emitted)
                 emitted = pos
             if not is_chord_note(el) and not is_grace(el): emitted += duration(el)
-            n = copy.deepcopy(el)
+            n = skip_map[id(el)] if id(el) in skip_map else copy.deepcopy(el)
             if (pos in lyr and not n.findall('lyric') and n.find('rest') is None
                     and not is_chord_note(n) and not is_grace(n)):
                 for l in lyr[pos]: n.append(copy.deepcopy(l))
@@ -154,11 +187,15 @@ def split_measure(measure, voice, donor=None, unison_from=None, report=None):
         # this voice has nothing in the bar: either the bar is sung in unison (copy the
         # other voice) or the singers rest (whole-measure rest). Report it either way.
         if unison_from is not None:
-            for el, pos in walk(measure):
-                if el.tag == 'note' and voice_of(el) == unison_from:
-                    m.append(copy.deepcopy(el))
+            src = [el for el in measure if el.tag == 'note' and voice_of(el) == unison_from]
+            groups = chord_groups(src)
+            bl = [c for c in m if c.tag == 'barline' and c.get('location') == 'right']
+            at = list(m).index(bl[0]) if bl else len(m)
+            for g in groups:
+                m.insert(at, pick_from_chord(g, highest=False)); at += 1
             emitted = mlen
-            if report is not None: report.setdefault('unison', []).append(measure.get('number'))
+            kind = 'divisi' if any(len(g) > 1 for g in groups) else 'unison'
+            if report is not None: report.setdefault(kind, []).append(measure.get('number'))
         else:
             rest = ET.Element('note'); ET.SubElement(rest, 'rest', {'measure': 'yes'})
             ET.SubElement(rest, 'duration').text = str(mlen); ET.SubElement(rest, 'voice').text = '1'
@@ -193,10 +230,13 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
             report = {}
             for meas in part.findall('measure'):
                 npart.append(split_measure(meas, v, donor if v != donor else None,
-                                           voices[0] if (unison_fill and v != voices[0]) else None, report))
+                                           voices[0] if (unison_fill and v != voices[0]) else None, report,
+                                           top_of_shorthand=(unison_fill and v == voices[0])))
             for kind, bars in report.items():
-                what = ('copied from voice %s (unison)' % voices[0]) if kind == 'unison' else 'whole-measure rest inserted'
-                print(f'   {nsp.findtext("part-name")}: no voice-{v} notes in bars {", ".join(bars)} -> {what}')
+                what = {'unison': 'copied from voice %s (unison)' % voices[0],
+                        'divisi': 'voice-%s chords split, %s note kept' % (voices[0], 'top' if v == voices[0] else 'bottom'),
+                        'rest': 'whole-measure rest inserted'}[kind]
+                print(f'   {nsp.findtext("part-name")}: bars {", ".join(bars)} -> {what}')
             reps.append((nsp, npart))
         replace_part(root, partlist, sp, part, reps)
 
