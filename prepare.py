@@ -222,6 +222,21 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
     for sp in list(partlist.findall('score-part')):
         pid = sp.get('id'); part = root.find(f"part[@id='{pid}']")
         pname = norm(sp.findtext('part-name')) or pid
+        per_voice = {}
+        for n in part.iter('note'):
+            if n.find('rest') is None: per_voice[voice_of(n)] = per_voice.get(voice_of(n), 0) + 1
+        total = sum(per_voice.values()) or 1
+        # A voice with a couple of stray notes is almost always an editing leftover in
+        # MuseScore, not a real part. Splitting it would give a part of rests with one
+        # note in it. Drop it loudly instead, so the score can be cleaned up.
+        for v, cnt in sorted(per_voice.items()):
+            if v != '1' and cnt < 3 and cnt / total < 0.02:
+                bars = sorted({m.get('number') for m in part.findall('measure') for n in m.findall('note')
+                               if voice_of(n) == v and n.find('rest') is None}, key=int)
+                print(f'{pname}: voice {v} has only {cnt} note(s), in bar(s) {", ".join(bars)}; '
+                      f'treated as a stray voice and dropped. Check the score in MuseScore.')
+                for m in part.findall('measure'):
+                    for n in [n for n in m if n.tag == 'note' and voice_of(n) == v]: m.remove(n)
         voices = sorted({voice_of(n) for n in part.iter('note')}, key=int)
         if len(voices) < 2:
             print(f'{pname}: 1 voice, kept'); continue
