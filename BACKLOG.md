@@ -57,12 +57,24 @@ staff bounds from `api.renderer.boundsLookup`. Combined with item 2 (hide the
 other parts) this also gives a one-staff "my part" view that fits any screen,
 which may be the simpler answer for phones.
 
+### 6. Respect the phone's status bar and notch (iPhone report, 2026-09-09)
+
+On an iPhone the top of the sidebar is hidden behind the clock, Wi-Fi and
+battery icons and the camera cut-out. Works otherwise.
+
+Plan: add `viewport-fit=cover` to the viewport meta and pad the top of the
+sidebar and the score container with `env(safe-area-inset-top)` (and the other
+three insets for landscape and the home indicator). While at it, the page has
+no viewport meta at all yet, which is probably why it renders at desktop scale
+on phones; adding `width=device-width, initial-scale=1` is part of the same
+change and should be checked together with item 5, since both are about the
+phone layout.
+
 ## Device reports
 
 - Android phones: works (several testers).
-- iOS: no report yet. Audio on iOS Safari needs a user gesture before the
-  AudioContext starts; alphaTab handles this, but it is the likeliest trouble
-  spot and should be tested explicitly.
+- iPhone: works, including audio (first report 2026-09-09). Layout issue with
+  the status bar and notch, see item 6.
 - One Android tablet: playback "extremely choppy" while the same site is fine
   on a phone. Most likely the synthesizer starving in the audio thread on a
   slow device. Things to try, in order: raise `player.bufferTimeInMilliseconds`
