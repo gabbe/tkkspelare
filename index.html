@@ -4,7 +4,7 @@
 body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-columns:320px 1fr;height:100vh}
 #side{padding:12px;border-right:1px solid #ccc;overflow:auto;font-size:14px}
 #main{overflow:auto;position:relative}
-.track{border:1px solid #ddd;padding:6px;margin:6px 0;border-radius:6px}
+.track,.panel{border:1px solid #ddd;padding:6px;margin:6px 0;border-radius:6px}
 .track b{display:block}
 button{margin:2px;border:1px solid #999;background:#f4f4f4;border-radius:4px;padding:2px 8px;cursor:pointer}
 button.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0}
@@ -28,6 +28,8 @@ label{display:block;margin:4px 0}
 <label><span data-t="preset"></span>
 <select id="preset"></select></label>
 <div id="summary"></div>
+<div id="bookmarks" class="panel"><b data-t="bookmarksHeading"></b><div id="bmlist"></div>
+<button id="bmadd"></button> <button id="report" hidden></button></div>
 <div id="tracks"></div>
 <p id="status"></p>
 <pre id="notes" style="white-space:pre-wrap;font-size:11px;color:#666"></pre>
@@ -47,6 +49,10 @@ const T={
  sumNeutral:'Alla stämmor hörs lika, i mitten.',
  presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
  rootFolder:'Övrigt', fixtureFolder:'Test', notesHeading:'Anmärkningar från förberedningen (för digitaliserarna):',
+ bookmarksHeading:'Bokmärken', bookmarkAdd:bar=>`Bokmärk takt ${bar}`, bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
+ report:bar=>`Rapportera fel i takt ${bar}`, reportEmail:'',   // fill in the digitisers' address to enable the report button
+ reportSubject:(title,bar)=>`Notfel: ${title}, takt ${bar}`,
+ reportBody:(title,bar,file,mixer)=>`Sång: ${title}\nTakt: ${bar}\nFil: ${file}\nMixer: ${mixer}\n\nVad är fel (stämma, ton, text, rytm ...)?\n\n`,
  fixture:[{title:'Testsång (fixtur: repris, D.C. al Coda, divisi)',file:'test/fixture-prepared.mxl'},
           {title:'Testsång, oförberedd export (S/A + T/B)',file:'test/fixture.mxl'}]
 };
@@ -82,6 +88,7 @@ api.scoreLoaded.on(s=>{
  score=s; saved=null; fixJumps(s);
  mix={vol:s.tracks.map(()=>1),mute:s.tracks.map(()=>false),solo:s.tracks.map(()=>false),pan:s.tracks.map(()=>8)};
  api.renderTracks(s.tracks); renderTracks();
+ currentFile=$('#file').value||currentFile; paintBookmarks();
  loadedText=T.loaded(s.title,s.tracks.length); $('#status').textContent=loadedText;
  if($('#linear').checked) setLinear(true);
 });
@@ -105,7 +112,7 @@ fetch('library.json').then(r=>r.ok?r.json():[]).catch(()=>[]).then(lib=>{
   list.forEach(it=>{const o=document.createElement('option');o.value=it.file;o.textContent=it.title+(it.warnings&&it.warnings.length?' ⚠':'');o.title=(it.warnings||[]).join('\n');og.appendChild(o);});
   sel.appendChild(og);});
  window.libraryItems=items;
- api.load(items[0].file);
+ currentFile=items[0].file; api.load(items[0].file);
 });
 $('#file').addEventListener('change',e=>{const it=(window.libraryItems||[]).find(i=>i.file===e.target.value); $('#notes').textContent=it&&it.warnings&&it.warnings.length?T.notesHeading+'\n'+it.warnings.join('\n'):'';});
 $('#play').onclick=()=>api.playPause();
@@ -171,6 +178,38 @@ function setRangeBars(range){
  const s=first(range.start.index), e=first(range.end.index); if(!s||!e) return;
  api.playbackRange={startTick:s.start+range.start.offset,endTick:e.start+range.end.offset+1};
 }
+
+// ---- Bookmarks (per song, in this browser) and error report (mail to the digitisers) ----
+let currentFile='';
+function currentBar(){
+ // playback position -> printed bar number (first occurrence wins when a bar repeats)
+ const t=api.tickPosition; const mbs=api.tickCache?api.tickCache.masterBars:[];
+ const hit=mbs.find(m=>t>=m.start&&t<m.end)||mbs[0]; return hit?hit.masterBar.index+1:1;
+}
+function gotoBar(bar){
+ if(!api.tickCache) return;
+ const m=api.tickCache.masterBars.find(x=>x.masterBar.index===bar-1); if(m){api.tickPosition=m.start; api.scrollToCursor();}
+}
+const bmKey=()=>'korspelare.bookmarks.'+currentFile;
+function bookmarks(){ try{return JSON.parse(localStorage.getItem(bmKey())||'[]');}catch(e){return [];} }
+function saveBookmarks(list){ try{localStorage.setItem(bmKey(),JSON.stringify(list));}catch(e){} paintBookmarks(); }
+function paintBookmarks(){
+ const box=$('#bmlist'); box.innerHTML='';
+ bookmarks().sort((a,b)=>a.bar-b.bar).forEach(b=>{
+  const row=document.createElement('div');
+  const go=document.createElement('button'); go.textContent=`${b.bar}: ${b.name}`; go.onclick=()=>gotoBar(b.bar);
+  const rm=document.createElement('button'); rm.textContent='×'; rm.title=T.bookmarkRemove; rm.onclick=()=>saveBookmarks(bookmarks().filter(x=>x.bar!==b.bar));
+  row.appendChild(go); row.appendChild(rm); box.appendChild(row);
+ });
+ $('#bmadd').textContent=T.bookmarkAdd(currentBar());
+ $('#report').textContent=T.report(currentBar()); $('#report').hidden=!T.reportEmail;
+}
+$('#bmadd').onclick=()=>{const bar=currentBar(); const name=prompt(T.bookmarkName(bar), ''); if(name===null) return;
+ saveBookmarks(bookmarks().filter(x=>x.bar!==bar).concat([{bar,name:name||''}]));};
+$('#report').onclick=()=>{const bar=currentBar(); const title=score&&score.title||currentFile;
+ const url='mailto:'+T.reportEmail+'?subject='+encodeURIComponent(T.reportSubject(title,bar))+'&body='+encodeURIComponent(T.reportBody(title,bar,currentFile,$('#summary').textContent));
+ location.href=url;};
+api.playerPositionChanged.on(()=>{const b=currentBar(); $('#bmadd').textContent=T.bookmarkAdd(b); $('#report').textContent=T.report(b);});
 
 // ---- Mixer UI ----
 function paint(){

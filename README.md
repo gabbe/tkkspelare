@@ -23,6 +23,10 @@ small change.
   loops exactly those bars
 - Change the instrument for all parts (piano, choir, organ, strings ...)
 - Repeats and D.C./D.S. al Coda are played in the right order
+- Bookmarks per song (stored in the browser), one click to jump back
+- "Report an error in this bar": opens the singer's mail client with song, bar
+  and mixer state prefilled, addressed to the digitisers (set `reportEmail` in
+  the `T` object in index.html; the button is hidden while it is empty)
 
 ## Getting started
 
@@ -165,8 +169,6 @@ Documented so they are not rediscovered. Each has a workaround in the code.
 
 ## Planned
 
-- Bookmarks within a song
-- Report an error in a bar to the people digitising
 - Instrument presets and soundfont selection
 
 ## License
