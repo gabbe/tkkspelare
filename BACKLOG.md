@@ -6,13 +6,14 @@ until it is picked.
 
 ## From the first testers (2026-09-09)
 
-### 1. Always show the short part name
+### 1. Always show the short part name (done 2026-09-09)
 
 In a score with many parts it is hard to tell which staff is which after the
 first system, where alphaTab prints names only once.
 
-Plan: two alphaTab settings, `display.firstSystemTrackNameMode = FullName`
-and `otherSystemsTrackNamePolicy = AllSystems` with `ShortName`. The short
+Done via the score stylesheet (`multiTrackTrackNamePolicy = AllSystems`,
+`firstSystemTrackNameMode = FullName`, `otherSystemsTrackNameMode = ShortName`;
+these are stylesheet properties, not settings). The short
 names come from MusicXML `part-abbreviation`, which prepare.py currently
 fills with the first three letters of the part name, so Bas 1 and Bas 2 both
 become "Bas". Give prepare.py real abbreviations instead: S, A, T, B, S1, S2,

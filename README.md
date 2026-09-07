@@ -15,6 +15,8 @@ small change.
 ## What the player does
 
 - Follows the score during playback; click a bar to jump there
+- Full part names on the first system, short names (S, A, T, B1, B2 ...) on
+  every following one
 - Solo, mute and volume per part, plus "damp the others" to hear your own part
   clearly with the rest in the background
 - Pan one part to one speaker and the rest to the other
@@ -91,7 +93,8 @@ py prepare.py in.mxl out.mxl --names "S/A=Sopran,Alt;T/B=Tenor,Bas" --explode "B
 ```
 
 1. Parts holding several voices are split into one part per voice. `--names`
-   names them.
+   names them, and each new part gets a short name for the staff labels
+   (Sopran 2 -> S2, Bas 1 -> B1, Ténor II -> T2).
 2. `--explode` splits divisi written as chords (Bass 1 and Bass 2 on one stem)
    into one part per chord note, top note first. Unison notes go to every part.
 3. `--copy-lyrics` gives a voice without text the lyrics of the voice that has

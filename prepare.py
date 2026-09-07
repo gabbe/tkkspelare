@@ -113,11 +113,28 @@ def walk(measure):
         elif el.tag == 'forward': pos += duration(el)
         elif el.tag == 'note' and not is_chord_note(el) and not is_grace(el): pos += duration(el)
 
+ABBREV = [(r'^(sopr\w*|s)\b', 'S'), (r'^(alt\w*|a)\b', 'A'), (r'^(t[ée]nor\w*|t)\b', 'T'), (r'^(bar[iy]ton\w*)', 'Bar'),
+          (r'^(bas\w*|b)\b', 'B'), (r'^(mezzo)', 'Mz'), (r'^(solo)', 'Solo'), (r'^(piano)', 'Pno'), (r'^(org)', 'Org'),
+          (r'^(damer|women)', 'SA'), (r'^(herrar|men)', 'TB')]
+ROMAN = {'I': '1', 'II': '2', 'III': '3', 'IV': '4'}
+
+def abbrev(name):
+    """Short part name shown on every system: S, A, T, B, with a divisi number
+    (Sopran 2 -> S2, Ténor II -> T2, Bas 1 -> B1). Unknown names keep three letters."""
+    n = norm(name)
+    m = re.search(r'\b(\d+|I{1,3}V?)\s*$', n)
+    num = (ROMAN.get(m.group(1), m.group(1)) if m else '')
+    for pat, short in ABBREV:
+        if re.search(pat, n, re.I): return short + num
+    return n[:3]
+
 def clone_scorepart(sp, new_id, name):
     nsp = copy.deepcopy(sp); nsp.set('id', new_id)
     nsp.find('part-name').text = name
     ab = nsp.find('part-abbreviation')
-    if ab is not None: ab.text = name[:3]
+    if ab is None:
+        ab = ET.Element('part-abbreviation'); nsp.insert(list(nsp).index(nsp.find('part-name')) + 1, ab)
+    ab.text = abbrev(name)
     for el in nsp.findall('score-instrument') + nsp.findall('midi-instrument'):
         el.set('id', el.get('id') + '-' + new_id)
     return nsp

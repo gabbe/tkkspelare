@@ -87,8 +87,15 @@ function fixJumps(s){
  swap(D.JumpDaCapo,D.JumpDaCapoAlCoda,D.JumpDaCapoAlFine);
  swap(D.JumpDalSegno,D.JumpDalSegnoAlCoda,D.JumpDalSegnoAlFine);
 }
+function trackNamesOnEverySystem(s){
+ // full part names on the first system, short names (S, A, T, B1 ...) on every other.
+ // These are properties of the score's stylesheet, not of the settings.
+ const M=alphaTab.model; const ss=s.stylesheet;
+ ss.multiTrackTrackNamePolicy=M.TrackNamePolicy.AllSystems; ss.singleTrackTrackNamePolicy=M.TrackNamePolicy.AllSystems;
+ ss.firstSystemTrackNameMode=M.TrackNameMode.FullName; ss.otherSystemsTrackNameMode=M.TrackNameMode.ShortName;
+}
 api.scoreLoaded.on(s=>{
- score=s; saved=null; fixJumps(s);
+ score=s; saved=null; fixJumps(s); trackNamesOnEverySystem(s);
  mix={vol:s.tracks.map(()=>1),mute:s.tracks.map(()=>false),solo:s.tracks.map(()=>false),pan:s.tracks.map(()=>8)};
  api.renderTracks(s.tracks); renderTracks();
  currentFile=$('#file').value||currentFile; paintBookmarks();
