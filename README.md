@@ -23,7 +23,10 @@ small change.
   loops exactly those bars
 - Change the instrument for all parts (piano, choir, organ, strings ...)
 - Repeats and D.C./D.S. al Coda are played in the right order
-- Bookmarks per song (stored in the browser), one click to jump back
+- Rehearsal marks from the score listed as jump targets, and bookmarks per
+  song (stored in the browser), one click to jump back
+- Keyboard: space plays/pauses whatever was clicked last, arrows step a bar,
+  Home returns to the start
 - "Report an error in this bar": opens the singer's mail client with song, bar
   and mixer state prefilled, addressed to the digitisers (set `reportEmail` in
   the `T` object in index.html; the button is hidden while it is empty)
@@ -50,7 +53,7 @@ repository.
 
 ```bash
 py sync.py --only-current        # the "Aktuellt" folder, about a minute for 30 scores
-py sync.py                       # everything under "2. MuseScore"
+py sync.py                       # everything under "2. MuseScore" (BU and Pågående are skipped)
 py sync.py --braille-dir ../BRF/New   # also write one Tenor file per score for SMB
 ```
 

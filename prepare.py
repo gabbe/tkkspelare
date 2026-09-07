@@ -38,6 +38,10 @@ What it does, in order:
      System marks that MuseScore writes on the top staff only (tempo, D.C.,
      To Coda, Coda, Segno, Fine, rehearsal marks) are carried into the kept
      part. Steps 4 and 5 are alphaTab workarounds and are skipped with --only.
+  7. --no-split: skip step 1. For braille, a part that divides for a couple of
+     beats (Rehnqvist, Tenor bar 36) should stay one part: the transcriber
+     writes the divisi as in-accord, and the singer sees both lines. Splitting
+     would either drop the second voice or make a "Tenor 2" of 55 bars of rest.
 """
 import argparse, copy, re, sys, zipfile
 import xml.etree.ElementTree as ET
@@ -251,8 +255,12 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
         # A voice with a couple of stray notes is almost always an editing leftover in
         # MuseScore, not a real part. Splitting it would give a part of rests with one
         # note in it. Drop it loudly instead, so the score can be cleaned up.
+        # A voice that carries a lyric syllable is never a leftover: someone typed
+        # text on it. Keep it, so the syllable survives (Rehnqvist, Tenor bar 36:
+        # a two-note divisi holding the only "ty" in the bar).
+        lyric_voices = {voice_of(n) for n in part.iter('note') if n.find('lyric') is not None}
         for v, cnt in sorted(per_voice.items()):
-            if v != '1' and cnt < 3 and cnt / total < 0.02:
+            if v != '1' and cnt < 3 and cnt / total < 0.02 and v not in lyric_voices:
                 bars = sorted({m.get('number') for m in part.findall('measure') for n in m.findall('note')
                                if voice_of(n) == v and n.find('rest') is None}, key=int)
                 print(f'{pname}: voice {v} has only {cnt} note(s), in bar(s) {bar_ranges(bars)}; '
@@ -473,12 +481,15 @@ def main():
     ap.add_argument('--unison-fill', action='store_true',
                     help='a bar where a lower voice has no notes is sung in unison: copy voice 1 instead of a rest')
     ap.add_argument('--only', default='', help='keep a single part, first match wins: "Tenor 2,Tenor" (for braille)')
+    ap.add_argument('--no-split', action='store_true',
+                    help='leave multi-voice parts whole (braille writes a short divisi as in-accord)')
     a = ap.parse_args()
 
     data, inner = read(a.src)
     root = ET.fromstring(data)
     partlist = root.find('part-list')
-    split_voices(root, partlist, parse_map(a.names), a.copy_lyrics, a.unison_fill)
+    if not a.no_split:
+        split_voices(root, partlist, parse_map(a.names), a.copy_lyrics, a.unison_fill)
     if a.explode: explode_chords(root, partlist, parse_map(a.explode))
     if a.copy_lyrics: borrow_lyrics(root, partlist)
     if a.only:

@@ -26,7 +26,7 @@ score, so the cursor and the mixer keep working. Re-rendering takes a moment
 on long scores; the checkbox should not re-render on every slider move, only
 when mute/solo/damping state changes. Interacts with item 5.
 
-### 3. Spacebar always toggles play/pause
+### 3. Spacebar always toggles play/pause (done 2026-09-09)
 
 Today space only works when nothing else has focus; after clicking a button or
 a slider the browser gives space to that control.
@@ -35,7 +35,7 @@ Plan: one `keydown` listener on `document` that handles space when the target
 is not a text field, calls `api.playPause()` and prevents the default. Also
 worth adding: Home for "back to start", left/right for bar steps.
 
-### 4. Jump to rehearsal marks
+### 4. Jump to rehearsal marks (done 2026-09-09)
 
 Plan: alphaTab imports MusicXML `<rehearsal>` into `masterBar.section.marker`,
 so the marks are already in the model. List them in the bookmark panel as a

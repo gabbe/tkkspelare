@@ -40,7 +40,7 @@ LIBRARY = HERE / 'library.json'
 SONGS = HERE / 'songs.json'
 LOCAL = HERE / 'sync.local.json'
 CURRENT_FOLDER = 'Aktuellt'
-SKIP_DIRS = {'.mscbackup', 'BU'}
+SKIP_DIRS = {'.mscbackup', 'BU', 'Pågående'}  # Pågående = work in progress, never published
 # Hand-made single-part scores for braille ("... - Tenor.mscz", "...Tenor2.mscz") duplicate the
 # full score in the library; the braille file is produced from the full score instead.
 PART_SCORE = re.compile(r'[-_ ]\s*tenor\s*2?$', re.I)

@@ -8,6 +8,7 @@ body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-column
 .track b{display:block}
 button{margin:2px;border:1px solid #999;background:#f4f4f4;border-radius:4px;padding:2px 8px;cursor:pointer}
 button.on{background:#2b6cb0;color:#fff;border-color:#2b6cb0}
+button.mark{background:#fff3c4;border-color:#d8b64a}
 .at-cursor-bar{background:rgba(255,242,0,.25)}
 .at-selection div{background:rgba(64,64,255,.1)}
 .at-cursor-beat{background:rgba(64,64,255,.75);width:3px}
@@ -32,6 +33,7 @@ label{display:block;margin:4px 0}
 <button id="bmadd"></button> <button id="report" hidden></button></div>
 <div id="tracks"></div>
 <p id="status"></p>
+<p data-t="keysHint" style="font-size:11px;color:#666"></p>
 <pre id="notes" style="white-space:pre-wrap;font-size:11px;color:#666"></pre>
 </div>
 <div id="main"><div id="at"></div></div>
@@ -49,7 +51,8 @@ const T={
  sumNeutral:'Alla stämmor hörs lika, i mitten.',
  presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
  rootFolder:'Övrigt', fixtureFolder:'Test', notesHeading:'Anmärkningar från förberedningen (för digitaliserarna):',
- bookmarksHeading:'Bokmärken', bookmarkAdd:bar=>`Bokmärk takt ${bar}`, bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
+ bookmarksHeading:'Bokmärken', rehearsalMark:(bar,name)=>`${name} (takt ${bar})`, bookmarkAdd:bar=>`Bokmärk takt ${bar}`,
+ keysHint:'Tangenter: mellanslag spela/pausa · ← → takt · Home början', bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
  report:bar=>`Rapportera fel i takt ${bar}`, reportEmail:'gabriel_tkkspelare@thornblad.com',
  reportSubject:(title,bar)=>`Notfel: ${title}, takt ${bar}`,
  reportBody:(title,bar,file,mixer)=>`Sång: ${title}\nTakt: ${bar}\nFil: ${file}\nMixer: ${mixer}\n\nVad är fel (stämma, ton, text, rytm ...)?\n\n`,
@@ -193,8 +196,19 @@ function gotoBar(bar){
 const bmKey=()=>'korspelare.bookmarks.'+currentFile;
 function bookmarks(){ try{return JSON.parse(localStorage.getItem(bmKey())||'[]');}catch(e){return [];} }
 function saveBookmarks(list){ try{localStorage.setItem(bmKey(),JSON.stringify(list));}catch(e){} paintBookmarks(); }
+function rehearsalMarks(){
+ // MusicXML <rehearsal> marks arrive as section markers on the master bars
+ if(!score) return [];
+ return score.masterBars.filter(m=>m.section&&m.section.marker).map(m=>({bar:m.index+1,name:m.section.marker}));
+}
 function paintBookmarks(){
  const box=$('#bmlist'); box.innerHTML='';
+ const marks=rehearsalMarks();
+ if(marks.length){
+  const row=document.createElement('div');
+  marks.forEach(m=>{const go=document.createElement('button'); go.textContent=T.rehearsalMark(m.bar,m.name); go.className='mark'; go.onclick=()=>gotoBar(m.bar); row.appendChild(go);});
+  box.appendChild(row);
+ }
  bookmarks().sort((a,b)=>a.bar-b.bar).forEach(b=>{
   const row=document.createElement('div');
   const go=document.createElement('button'); go.textContent=`${b.bar}: ${b.name}`; go.onclick=()=>gotoBar(b.bar);
@@ -210,6 +224,20 @@ $('#report').onclick=()=>{const bar=currentBar(); const title=score&&score.title
  const url='mailto:'+T.reportEmail+'?subject='+encodeURIComponent(T.reportSubject(title,bar))+'&body='+encodeURIComponent(T.reportBody(title,bar,currentFile,$('#summary').textContent));
  location.href=url;};
 api.playerPositionChanged.on(()=>{const b=currentBar(); $('#bmadd').textContent=T.bookmarkAdd(b); $('#report').textContent=T.report(b);});
+
+// ---- Keyboard: space always toggles playback, whatever was clicked last ----
+const typing=el=>el&&(el.tagName==='TEXTAREA'||(el.tagName==='INPUT'&&!['range','checkbox'].includes(el.type)));
+document.addEventListener('keydown',e=>{
+ if(typing(e.target)) return;
+ const onControl=e.target&&['INPUT','SELECT'].includes(e.target.tagName);
+ if(e.code==='Space'){ e.preventDefault(); if(e.target&&e.target.blur) e.target.blur(); api.playPause(); }
+ else if(e.code==='Home'){ e.preventDefault(); api.tickPosition=0; api.scrollToCursor(); }
+ else if(!onControl&&e.code==='ArrowLeft'){ e.preventDefault(); gotoBar(Math.max(1,currentBar()-1)); }
+ else if(!onControl&&e.code==='ArrowRight'){ e.preventDefault(); gotoBar(currentBar()+1); }
+});
+// a focused button would still fire its click on keyup after a space
+document.addEventListener('keyup',e=>{ if(e.code==='Space'&&!typing(e.target)) e.preventDefault(); });
+document.addEventListener('click',e=>{ if(e.target&&e.target.tagName==='BUTTON') e.target.blur(); });
 
 // ---- Mixer UI ----
 function paint(){
