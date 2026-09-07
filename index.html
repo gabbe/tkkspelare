@@ -50,7 +50,7 @@ const T={
  presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
  rootFolder:'Övrigt', fixtureFolder:'Test', notesHeading:'Anmärkningar från förberedningen (för digitaliserarna):',
  bookmarksHeading:'Bokmärken', bookmarkAdd:bar=>`Bokmärk takt ${bar}`, bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
- report:bar=>`Rapportera fel i takt ${bar}`, reportEmail:'',   // fill in the digitisers' address to enable the report button
+ report:bar=>`Rapportera fel i takt ${bar}`, reportEmail:'gabriel_tkkspelare@thornblad.com',
  reportSubject:(title,bar)=>`Notfel: ${title}, takt ${bar}`,
  reportBody:(title,bar,file,mixer)=>`Sång: ${title}\nTakt: ${bar}\nFil: ${file}\nMixer: ${mixer}\n\nVad är fel (stämma, ton, text, rytm ...)?\n\n`,
  fixture:[{title:'Testsång (fixtur: repris, D.C. al Coda, divisi)',file:'test/fixture-prepared.mxl'},
