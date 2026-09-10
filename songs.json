@@ -1,6 +1,14 @@
 {
-  "Olle_Adolphson_Rättnu_min_tid": {
-    "title": "Rättnu min tid",
-    "explode": {"Bas": ["Bas 1", "Bas 2"]}
+ "Olle_Adolphson_Rättnu_min_tid": {
+  "title": "Rättnu min tid",
+  "explode": {
+   "Bas": [
+    "Bas 1",
+    "Bas 2"
+   ]
   }
+ },
+ "Rehnqvist_Var_inte_rädd_för_mörkret": {
+  "braille_no_split": true
+ }
 }

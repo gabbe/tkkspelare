@@ -259,6 +259,33 @@ def bar_ranges(bars):
         out.append(str(nums[i]) if i == j else f'{nums[i]}-{nums[j]}'); i = j + 1
     return ', '.join(out)
 
+def divisi_report(root, partlist, min_bars=2):
+    """Report parts that divide for min_bars bars or more, before anything is split.
+
+    Two kinds, kept apart because the remedy differs: several voices on one staff are
+    split automatically, chords on one stem need --explode naming the two halves.
+    A blind singer needs one line of his own, so a division that lasts more than a
+    bar or two has to become its own part before the braille extract is taken.
+    """
+    names = {sp.get('id'): (sp.findtext('part-name') or sp.get('id') or '').strip()
+             for sp in partlist.findall('score-part')}
+    for part in root.findall('part'):
+        pname = names.get(part.get('id')) or part.get('id')
+        vbars, cbars = [], []
+        for m in part.findall('measure'):
+            num = m.get('number')
+            if not (num or '').isdigit():
+                continue                      # pickup bars and the like carry no usable number
+            notes = m.findall('note')
+            if len({voice_of(n) for n in notes if n.find('rest') is None}) > 1:
+                vbars.append(num)
+            if any(n.find('chord') is not None for n in notes):
+                cbars.append(num)
+        for bars, what, fix in ((vbars, 'two voices', 'split automatically'),
+                                (cbars, 'chords on one stem', 'needs --explode to become separate parts')):
+            if len(bars) >= min_bars:
+                print(f'{pname}: divisi ({what}) in {len(bars)} bar(s): {bar_ranges(bars)} - {fix}')
+
 def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
     for sp in list(partlist.findall('score-part')):
         pid = sp.get('id'); part = root.find(f"part[@id='{pid}']")
@@ -498,6 +525,8 @@ def main():
     ap.add_argument('--unison-fill', action='store_true',
                     help='a bar where a lower voice has no notes is sung in unison: copy voice 1 instead of a rest')
     ap.add_argument('--only', default='', help='keep a single part, first match wins: "Tenor 2,Tenor" (for braille)')
+    ap.add_argument('--divisi-bars', type=int, default=2, metavar='N',
+                    help='report a part that divides for N bars or more (default 2)')
     ap.add_argument('--no-split', action='store_true',
                     help='leave multi-voice parts whole (braille writes a short divisi as in-accord)')
     a = ap.parse_args()
@@ -505,6 +534,7 @@ def main():
     data, inner = read(a.src)
     root = ET.fromstring(data)
     partlist = root.find('part-list')
+    divisi_report(root, partlist, a.divisi_bars)
     if not a.no_split:
         split_voices(root, partlist, parse_map(a.names), a.copy_lyrics, a.unison_fill)
     if a.explode: explode_chords(root, partlist, parse_map(a.explode))

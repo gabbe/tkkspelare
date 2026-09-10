@@ -79,10 +79,11 @@ def export(musescore, src, dst):
     if r.returncode != 0 or not dst.exists():
         raise RuntimeError(f'MuseScore export failed (exit {r.returncode}): {r.stderr.strip()[-300:]}')
 
-def prepare(src, dst, names, explode, only=None):
+def prepare(src, dst, names, explode, only=None, no_split=False):
     cmd = [sys.executable, str(HERE / 'prepare.py'), str(src), str(dst), '--copy-lyrics', '--unison-fill', '--names', names_arg(names)]
     if explode: cmd += ['--explode', names_arg(explode)]
     if only: cmd += ['--only', ','.join(only)]
+    if no_split: cmd.append('--no-split')
     env = dict(os.environ, PYTHONIOENCODING='utf-8')
     r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf8', errors='replace', env=env)
     if r.returncode != 0:
@@ -139,7 +140,12 @@ def main():
                     if a.braille_dir:
                         bdir = pathlib.Path(a.braille_dir); bdir.mkdir(parents=True, exist_ok=True)
                         try:
-                            prepare(full, bdir / f'{title}-Tenor.mxl', names, None, only=cfg.get('braille_part', BRAILLE_PART))
+                            # Same explode as the player file: divisi written as chords must
+                            # become separate parts here too, or the braille extract keeps the
+                            # chord and the singer gets two notes on one stem.
+                            prepare(full, bdir / f'{title}-Tenor.mxl', names, cfg.get('explode'),
+                                    only=cfg.get('braille_part', BRAILLE_PART),
+                                    no_split=cfg.get('braille_no_split', False))
                         except RuntimeError as e:
                             warnings.append('braille: ' + str(e).splitlines()[-1])
                 meta = {'title': title, 'score_title': hint, 'warnings': warnings, 'source': str(src), 'exported': time.strftime('%Y-%m-%d %H:%M')}
