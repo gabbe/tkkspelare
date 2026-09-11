@@ -47,7 +47,8 @@ and these keys in `sync.local.json`:
  "deploy_dir": "/var/www/tkkspelare"}
 ```
 
-`deploy_host` is whatever `ssh` accepts: a host alias from `~/.ssh/config`
+Machine-specific keys can also sit under a `hosts` block keyed by host name,
+see the README. `deploy_host` is whatever `ssh` accepts: a host alias from `~/.ssh/config`
 (recommended, with a key, so no password prompt) or `user@voldemort.example`.
 
 ```bash

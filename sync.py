@@ -25,10 +25,14 @@ Per-song settings live in songs.json (committed; it holds titles, not music):
 keyed by the .mscz file name without extension. DEFAULT_NAMES below covers the
 usual two-voice staves; songs.json only needs the exceptions.
 
-Machine-specific paths go in sync.local.json (git-ignored):
-  {"source": "G:/.../Digitala Noter/2. MuseScore", "musescore": "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"}
+Machine-specific paths go in sync.local.json (git-ignored). Top-level keys apply
+everywhere; a "hosts" block keyed by host name (case-insensitive) overrides them,
+so one file can travel between machines through a synced folder:
+  {"deploy_host": "voldemort", "deploy_dir": "/var/www/tkkspelare",
+   "hosts": {"RADISH": {"source": "G:/.../2. MuseScore", "musescore": "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"},
+             "fritz":  {"source": "/home/gabriel/Drive/.../2. MuseScore", "musescore": "/home/gabriel/bin/musescore"}}}
 """
-import argparse, json, os, pathlib, re, shutil, subprocess, sys, tempfile, time, zipfile
+import argparse, json, os, pathlib, re, shutil, socket, subprocess, sys, tempfile, time, zipfile
 import xml.etree.ElementTree as ET
 
 try: sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -58,6 +62,13 @@ BRAILLE_PART = ['Tenor 2', 'Tenor II', 'T2', 'Ténor 2', 'Tenor', 'T', 'Ténor',
 
 def load_json(path, default):
     return json.loads(path.read_text(encoding='utf8')) if path.exists() else default
+
+def load_local():
+    """sync.local.json with this host's block from "hosts" merged over the top-level keys."""
+    cfg = load_json(LOCAL, {})
+    hosts = {k.lower(): v for k, v in cfg.pop('hosts', {}).items()}
+    cfg.update(hosts.get(socket.gethostname().lower(), {}))
+    return cfg
 
 def names_arg(mapping):
     return ';'.join(f'{k}={",".join(v)}' for k, v in mapping.items())
@@ -94,7 +105,7 @@ def prepare(src, dst, names, explode, only=None, no_split=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    local = load_json(LOCAL, {})
+    local = load_local()
     ap.add_argument('--source', default=local.get('source'), help='folder with the .mscz files (default from sync.local.json)')
     ap.add_argument('--musescore', default=local.get('musescore', r'C:\Program Files\MuseScore 4\bin\MuseScore4.exe'))
     ap.add_argument('--only-current', action='store_true', help=f'only the "{CURRENT_FOLDER}" subfolder')

@@ -3,15 +3,17 @@
 
     py deploy.py [--all] [--no-sync] [--force]
 
-Reads deploy_host and deploy_dir from sync.local.json (see deploy/SERVER.md).
+Reads deploy_host and deploy_dir from sync.local.json (see deploy/SERVER.md),
+with the same per-host override block as sync.py.
 The site is packed as a tar stream and unpacked on the server into a fresh
 directory next to the live one, which is then swapped in, so a half-finished
 upload never leaves the site broken. Only ssh is needed on this machine.
 """
-import argparse, io, json, pathlib, subprocess, sys, tarfile, time
+import argparse, io, pathlib, subprocess, sys, tarfile, time
 
 HERE = pathlib.Path(__file__).resolve().parent
-LOCAL = HERE / 'sync.local.json'
+sys.path.insert(0, str(HERE))
+from sync import load_local
 SITE_FILES = ['index.html', 'robots.txt', 'library.json']
 SITE_DIRS = ['vendor', 'noter', 'test']
 
@@ -21,7 +23,7 @@ def main():
     ap.add_argument('--no-sync', action='store_true', help='skip the Drive sync, upload what is there')
     ap.add_argument('--force', action='store_true', help='re-export every score during the sync')
     a = ap.parse_args()
-    cfg = json.loads(LOCAL.read_text(encoding='utf8')) if LOCAL.exists() else {}
+    cfg = load_local()
     host, remote = cfg.get('deploy_host'), cfg.get('deploy_dir')
     if not host or not remote: sys.exit('deploy_host and deploy_dir missing in sync.local.json')
 

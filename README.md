@@ -73,6 +73,18 @@ Paths for this machine go in `sync.local.json` (git-ignored):
  "musescore": "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"}
 ```
 
+If the working copy travels between machines (Syncthing, a shared drive), put
+the machine-specific keys under `hosts`, keyed by host name; that block is
+merged over the top-level keys on the matching machine:
+
+```json
+{"deploy_host": "voldemort", "deploy_dir": "/var/www/tkkspelare",
+ "hosts": {"RADISH": {"source": "G:/.../2. MuseScore",
+                      "musescore": "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"},
+           "fritz":  {"source": "/home/gabriel/Drive/.../2. MuseScore",
+                      "musescore": "/home/gabriel/bin/musescore"}}}
+```
+
 Per-song exceptions go in `songs.json` (committed, it holds titles only),
 keyed by the `.mscz` file name without extension: `title`, `names` (extra
 two-voice staff names), `explode` (divisi written as chords), `skip`, `keep`
