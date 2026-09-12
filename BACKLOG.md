@@ -70,11 +70,44 @@ on phones; adding `width=device-width, initial-scale=1` is part of the same
 change and should be checked together with item 5, since both are about the
 phone layout.
 
+### 7. iPhone: no sound while the ring/silent switch is on silent (2026-09-12)
+
+Reported by an iPhone user: with the side switch on silent the player is mute,
+although media apps still play in that state. iOS treats Web Audio as
+"ambient" sound, which the silent switch cuts, unless the page also plays
+through an HTML media element, which puts the tab in "playback" mode.
+
+Plan: on the first user gesture (the play button), start a looping, silent
+`<audio>` element with `playsinline`, the technique the "unmute" library uses,
+and keep it running while the page is open. Alternative if that is not enough:
+route alphaTab's output through `MediaStreamAudioDestinationNode` into an
+`<audio>` element. Needs testing on a real iPhone; the desktop cannot reproduce
+it.
+
+### 8. Patch alphaTab's note spelling locally (issue #2861) (2026-09-12)
+
+Several users are distracted by the wrong enharmonic spelling: a repeated F#
+in a flat key drawn as Gb with a flat, and the extra natural on the following
+G. The tie case is already handled by prepare.py; the same-bar case cannot be
+fixed from outside because the source deliberately omits the accidental.
+Second report of item 6 (status bar / notch) came in the same round.
+
+Plan: extend `patch_alphatab.py` with a second marked patch in the MusicXML
+importer: when a `<note>` has no `<accidental>` element, derive the spelling
+from `<alter>` (1 → ForceSharp, −1 → ForceFlat, 2/−2 → double, 0 → Default,
+or ForceNatural when the key signature alters that letter). Whether a sign is
+drawn is still decided by alphaTab's accidental helper, so no extra signs
+should appear. First check whether the 1.9 alpha already fixed #2861; if it
+did, backport that change instead of inventing one. Same anchor-once-or-abort
+rule as the existing patch, and a fixture case in `test/make_fixture.py`
+(F# quarter, F# quarter, G half in F major) to verify the rendering.
+
 ## Device reports
 
 - Android phones: works (several testers).
 - iPhone: works, including audio (first report 2026-09-09). Layout issue with
-  the status bar and notch, see item 6.
+  the status bar and notch, see item 6 (reported twice). Silent switch mutes
+  the player, see item 7.
 - One Android tablet: playback "extremely choppy" while the same site is fine
   on a phone. Most likely the synthesizer starving in the audio thread on a
   slow device. Things to try, in order: raise `player.bufferTimeInMilliseconds`
