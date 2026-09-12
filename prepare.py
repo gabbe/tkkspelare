@@ -449,6 +449,29 @@ def hoist_jumps(root):
                 m.insert(list(m).index(d) + 1, ET.Element('sound', attrs)); n += 1
     print(f'jump directions copied to measure level: {n}')
 
+# ---------- 5b. metronome marks in quarters ----------
+BEAT_UNITS = {'whole': 4.0, 'half': 2.0, 'quarter': 1.0, 'eighth': 0.5, '16th': 0.25, '32nd': 0.125}
+
+def fix_metronome(root):
+    """alphaTab 1.8.4 computes the tempo from <metronome> as per-minute * (unit / 4) with
+    its Duration enum (quarter = 4, eighth = 8), so "eighth = 100" plays at 200 quarter
+    BPM and "half = 60" at 30. Rewrite every mark in quarters (eighth = 100 -> quarter =
+    50), which alphaTab handles correctly. The <sound tempo> MuseScore writes next to
+    the mark is already in quarters and is left alone. Reported upstream (issue 06)."""
+    n = 0
+    for mt in root.iter('metronome'):
+        unit = mt.find('beat-unit'); pm = mt.find('per-minute')
+        if unit is None or pm is None or unit.text not in BEAT_UNITS or unit.text == 'quarter': continue
+        try: bpm = float(pm.text)
+        except (TypeError, ValueError): continue
+        factor = BEAT_UNITS[unit.text] * (1.5 if mt.find('beat-unit-dot') is not None else 1.0)
+        q = bpm * factor
+        pm.text = str(int(q)) if q == int(q) else f'{q:g}'
+        unit.text = 'quarter'
+        for d in mt.findall('beat-unit-dot'): mt.remove(d)
+        n += 1
+    if n: print(f'metronome marks rewritten in quarters for alphaTab: {n}')
+
 # ---------- 6. keep a single part (for braille transcription) ----------
 def carry_system_marks(top, kept):
     """MuseScore writes system-wide marks (tempo, D.C., To Coda, Coda, Segno, Fine,
@@ -546,6 +569,7 @@ def main():
     else:
         fix_tie_accidentals(root)
         hoist_jumps(root)
+        fix_metronome(root)
 
     out = ET.tostring(root, encoding='utf-8', xml_declaration=True)
     m = re.search(rb'<!DOCTYPE[^>]*>', data)

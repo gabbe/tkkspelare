@@ -171,6 +171,9 @@ Documented so they are not rediscovered. Each has a workaround in the code.
 
 - A jump takes precedence over a repeat in the same bar. See patch_alphatab.py.
 - `<sound>` inside `<direction>` is read for tempo only. See prepare.py step 5.
+- `<metronome>` tempo is computed as per-minute × (beat unit ÷ 4) with alphaTab's
+  Duration enum (quarter = 4, eighth = 8), so ♪ = 100 plays at 200 quarter BPM and
+  𝅗𝅥 = 60 at 30. prepare.py rewrites marks in quarters (step 5b). Upstream issue 06.
 - Notes are spelled from the key signature, not from MusicXML step and alter.
   See step 4.
 - Instrument change: the importer stores the file's instrument as a beat

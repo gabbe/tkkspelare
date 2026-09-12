@@ -11,6 +11,7 @@ alphaTab 1.8.4; the same behaviour is present in the 1.9.0-alpha.1891 build.
 | 03-musicxml-dacapo-without-coda.md | `dacapo` + `tocoda` plays to the end instead of jumping to the coda | `fixJumps` in index.html | [#2860](https://github.com/CoderLine/alphaTab/issues/2860) |
 | 04-musicxml-spelling.md | Notes without `<accidental>` are spelled from the key signature (F# drawn as Gb) | prepare.py step 4, partial | [#2861](https://github.com/CoderLine/alphaTab/issues/2861) |
 | 05-loadedmidiinfo-recursion.md | `api.midiLoaded.on()` after the first load throws a stack overflow | register before first load | [#2862](https://github.com/CoderLine/alphaTab/issues/2862) |
+| 06-musicxml-metronome-beat-unit.md | `<metronome>` with eighth/half beat unit gives the inverse tempo (♪ = 100 plays at 200) | prepare.py step 5b rewrites marks in quarters | not yet |
 
 ## alphaTab's rules, and what they mean for you
 
