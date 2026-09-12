@@ -102,6 +102,21 @@ did, backport that change instead of inventing one. Same anchor-once-or-abort
 rule as the existing patch, and a fixture case in `test/make_fixture.py`
 (F# quarter, F# quarter, G half in F major) to verify the rendering.
 
+### 9. Keep the selected song across a refresh, and remember it between visits (2026-09-12)
+
+A page refresh currently loads the first song in the library instead of the
+one that was open. Users also want the player to open on the song they had
+last time.
+
+Plan: put the song in the URL hash (`#noter/Aktuellt/....mxl`) whenever a song
+is selected, and read it at startup; that survives refresh and makes a song
+linkable, so a link to a specific song can be shared in the choir's chat. For
+"last time" store the same key in `localStorage` (the bookmarks already live
+there; cookies are not needed since nothing is sent to the server) and use it
+when the URL has no hash. If the stored song is no longer in the library, fall
+back to the first current song. Order of precedence: URL hash, then stored
+song, then first entry.
+
 ## Device reports
 
 - Android phones: works (several testers).
