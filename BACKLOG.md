@@ -94,3 +94,6 @@ phone layout.
 - Remove the alphaTab workarounds as upstream issues #2858–#2862 get fixed.
 - Snabbt jagar stormen våra år crashes SMB 25.5.5.1 (39 meter changes); find
   out which SMB version produced the May transcription.
+- Deploy with a key as user gabriel instead of root on voldemort (authorized_keys,
+  `deploy_dir` owned by gabriel, `deploy_host: voldemort`), so `deploy.py` never
+  waits for a password. Agreed 2026-09-12, deferred.
