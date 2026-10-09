@@ -251,13 +251,14 @@ def split_measure(measure, voice, donor=None, unison_from=None, report=None, top
     return m
 
 def bar_ranges(bars):
-    """['1','2','3','7','9','10'] -> '1-3, 7, 9-10'"""
-    nums = sorted(int(b) for b in bars); out = []; i = 0
+    """['1','2','3','7','9','10'] -> '1-3, 7, 9-10'. Unnumbered bars (MuseScore's
+    "X1" for bars excluded from the count) are listed last as they are."""
+    nums = sorted(int(b) for b in bars if b.isdigit()); out = []; i = 0
     while i < len(nums):
         j = i
         while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1: j += 1
         out.append(str(nums[i]) if i == j else f'{nums[i]}-{nums[j]}'); i = j + 1
-    return ', '.join(out)
+    return ', '.join(out + sorted(b for b in bars if not b.isdigit()))
 
 def divisi_report(root, partlist, min_bars=2):
     """Report parts that divide for min_bars bars or more, before anything is split.
