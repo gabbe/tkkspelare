@@ -36,7 +36,7 @@ What it does, in order:
      rest, producing the one-part file the braille transcription needs, so no
      "Tenor part with the bass hidden" has to be maintained in MuseScore.
      System marks that MuseScore writes on the top staff only (tempo, D.C.,
-     To Coda, Coda, Segno, Fine, rehearsal marks) are carried into the kept
+     To Coda, Coda, Segno, Fine, rehearsal marks, volta endings) are carried into the kept
      part. Steps 4 and 5 are alphaTab workarounds and are skipped with --only.
   7. --no-split: skip step 1. For braille, a part that divides for a couple of
      beats (Rehnqvist, Tenor bar 36) should stay one part: the transcriber
@@ -511,6 +511,20 @@ def carry_system_marks(top, kept):
                 if kel.tag == 'barline' and kel.get('location') == 'right':
                     target = i; break
             mk.insert(target, copy.deepcopy(el)); n += 1
+        # Voltas (1., 2. endings) also sit on the top staff only.
+        for bt in mt.findall('barline'):
+            end = bt.find('ending')
+            if end is None: continue
+            loc = bt.get('location', 'right')
+            bk = next((b for b in mk.findall('barline') if b.get('location', 'right') == loc), None)
+            if bk is None:
+                bk = ET.Element('barline', location=loc)
+                mk.insert(next((i for i, c in enumerate(mk) if c.tag not in ('print', 'attributes')), len(mk))
+                          if loc == 'left' else len(mk), bk)
+            if bk.find('ending') is not None: continue
+            rep = bk.find('repeat')   # schema order: ... ending, repeat
+            bk.insert(list(bk).index(rep) if rep is not None else len(bk), copy.deepcopy(end))
+            carried.append(f"bar {mt.get('number')}: ending {end.get('number')} {end.get('type')}"); n += 1
     print(f'system marks carried from top part: {n}' + (' (' + '; '.join(carried) + ')' if carried else ''))
 
 def keep_only(root, partlist, preference):

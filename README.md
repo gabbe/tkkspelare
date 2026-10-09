@@ -142,7 +142,7 @@ Keeps one part (first name in the list that exists) and drops the rest. This
 replaces the MuseScore "Tenor part with the bass hidden" that had to be
 maintained by hand for the braille transcription. System marks that MuseScore
 writes on the top staff only (tempo, D.C., To Coda, Coda, Segno, Fine,
-rehearsal marks) are copied into the kept part. The alphaTab workarounds
+rehearsal marks, volta endings) are copied into the kept part. The alphaTab workarounds
 (steps 4 and 5) are skipped, so the file is MuseScore's own MusicXML minus the
 other parts. Verified on Rättnu min tid: every note, rest, tie, slur, lyric
 syllable, barline and direction matches the manual Tenor part export.
