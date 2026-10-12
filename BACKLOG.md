@@ -75,7 +75,7 @@ and below 700px the sidebar stacks above the score (scrolls on its own, at most
 40% of the height). Checked in a 390px frame in the browser; the notch padding
 only shows on a real iPhone, so ask a tester to confirm.
 
-### 7. iPhone: no sound while the ring/silent switch is on silent (2026-09-12)
+### 7. iPhone: no sound while the ring/silent switch is on silent (2026-09-12) (done 2026-10-12, iPhone check pending)
 
 Reported by an iPhone user: with the side switch on silent the player is mute,
 although media apps still play in that state. iOS treats Web Audio as
@@ -89,7 +89,17 @@ route alphaTab's output through `MediaStreamAudioDestinationNode` into an
 `<audio>` element. Needs testing on a real iPhone; the desktop cannot reproduce
 it.
 
-### 8. Patch alphaTab's note spelling locally (issue #2861) (2026-09-12)
+Done, iOS only: `navigator.audioSession.type = 'playback'` where Safari has the
+Audio Session API (16.4+), and a silent looping `<audio>` (a half-second WAV
+built in the page) started on the first tap or key press and restarted on any
+later one if iOS paused it in the background. Checked in a desktop browser that
+the clip decodes, starts from a click and loops; whether it beats the silent
+switch can only be checked on an iPhone, together with item 6.
+
+### 8. Patch alphaTab's note spelling locally (issue #2861) (2026-09-12) (superseded 2026-10-12)
+
+Not needed any more: #2861 is fixed on alphaTab `develop` (PR #2931), so the
+spelling comes with the next alpha, see "Remove the alphaTab workarounds" below.
 
 Several users are distracted by the wrong enharmonic spelling: a repeated F#
 in a flat key drawn as Gb with a flat, and the extra natural on the following
@@ -129,8 +139,8 @@ does not step through songs; pasting a song link into an open tab switches to it
 
 - Android phones: works (several testers).
 - iPhone: works, including audio (first report 2026-09-09). Layout issue with
-  the status bar and notch, see item 6 (reported twice, fix awaiting a check). Silent switch mutes
-  the player, see item 7.
+  the status bar and notch, see item 6 (reported twice). Silent switch mutes
+  the player, see item 7. Fixes for both are in and need an iPhone check.
 - One Android tablet: playback "extremely choppy" while the same site is fine
   on a phone. Most likely the synthesizer starving in the audio thread on a
   slow device. Things to try, in order: raise `player.bufferTimeInMilliseconds`
@@ -154,6 +164,12 @@ does not step through songs; pasting a song link into an open tab switches to it
   publish is failing). Agreed: wait for the next alpha, then bump
   `patch_alphatab.py`, drop the patch, prepare.py steps 4–5 and the
   register-before-load ordering, and test D.C./D.S. songs.
+- Ave Maria (Biebl), 2026-10-12: the trio's Bas (P3) has text only on its
+  "Amen, Amen"; if the trio sings the words, they are missing in the MuseScore
+  file. The choir's Bas 2 divides into chords in bars 11, 23 and 31; left as
+  chords on purpose (playback is right, and an explode would add a third bass
+  part that is identical for 45 of 48 bars). Parts are named by part id in
+  songs.json, so the entry needs updating if staves are added or reordered.
 - Snabbt jagar stormen våra år crashes SMB 25.5.5.1 (39 meter changes); find
   out which SMB version produced the May transcription.
 - Deploy with a key as user gabriel instead of root on voldemort (authorized_keys,
