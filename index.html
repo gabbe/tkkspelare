@@ -1,7 +1,17 @@
 <!doctype html>
 <html lang="sv"><head><meta charset="utf-8"><title>Körspelare</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>
-body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-columns:320px 1fr;height:100vh}
+/* viewport-fit=cover lets the page run under the status bar, notch and home indicator;
+   the safe-area insets keep the content out of them (all zero on desktop). */
+body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-columns:320px 1fr;height:100vh;height:100dvh;box-sizing:border-box;
+ padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+/* Phones: sidebar above the score, scrolling on its own so the score keeps most of the screen */
+@media (max-width:700px){
+ body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+ #side{max-height:40vh;max-height:40dvh;border-right:none;border-bottom:1px solid #ccc}
+ #file{max-width:100%!important}
+}
 #side{padding:12px;border-right:1px solid #ccc;overflow:auto;font-size:14px}
 #main{overflow:auto;position:relative}
 .track,.panel{border:1px solid #ddd;padding:6px;margin:6px 0;border-radius:6px}
