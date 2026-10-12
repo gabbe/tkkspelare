@@ -134,6 +134,10 @@ def main():
         out = NOTER / (folder + '/' if folder else '') / (key + '.mxl')
         out.parent.mkdir(parents=True, exist_ok=True)
         meta_path = out.with_suffix('.json')
+        # MuseScore's title field is unreliable (placeholders, OCR leftovers), so the file
+        # name is the default and songs.json can override; the field is kept as a hint.
+        # Decided on every run, so a new songs.json title needs no re-export.
+        title = cfg.get('title') or ' '.join(key.replace('_', ' ').split())
         fresh = out.exists() and meta_path.exists() and out.stat().st_mtime >= src.stat().st_mtime and not a.force
         if fresh:
             meta = load_json(meta_path, {})
@@ -144,9 +148,6 @@ def main():
                     full = pathlib.Path(td) / 'full.mxl'
                     export(a.musescore, src, full)
                     warnings = prepare(full, out, names, cfg.get('explode'))
-                    # MuseScore's title field is unreliable (placeholders, OCR leftovers), so the
-                    # file name is the default and songs.json can override; the field is kept as a hint.
-                    title = cfg.get('title') or ' '.join(key.replace('_', ' ').split())
                     hint = musicxml_title(full)
                     if a.braille_dir:
                         bdir = pathlib.Path(a.braille_dir); bdir.mkdir(parents=True, exist_ok=True)
@@ -165,9 +166,9 @@ def main():
                 print(f'+ {rel} -> {title}' + (f'  [{len(warnings)} note(s)]' if warnings else ''))
                 for w in warnings: print('     ', w)
             except Exception as e:
-                print(f'! {rel}: {e}'); meta = {'title': key.replace('_', ' '), 'warnings': [f'EXPORT FAILED: {e}'], 'source': str(src)}
+                print(f'! {rel}: {e}'); meta = {'title': title, 'warnings': [f'EXPORT FAILED: {e}'], 'source': str(src)}
                 if not out.exists(): continue
-        entries.append({'title': meta['title'], 'file': out.relative_to(HERE).as_posix(), 'folder': folder,
+        entries.append({'title': title, 'file': out.relative_to(HERE).as_posix(), 'folder': folder,
                         'current': folder.split('/')[0] == CURRENT_FOLDER, 'warnings': meta.get('warnings', []),
                         'score_title': meta.get('score_title')})
         if a.limit and done >= a.limit: break
