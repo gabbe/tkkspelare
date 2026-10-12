@@ -110,7 +110,20 @@ api.playerReady.on(()=>$('#status').textContent=loadedText+T.audioReady);
 api.error.on(e=>{$('#status').textContent=T.error+e.message;console.error(e)});
 api.playerPositionChanged.on(e=>{const p=$('#pos'); if(p) p.textContent=Math.round(e.currentTime/1000)+'s / '+Math.round(e.endTime/1000)+'s'});
 
-$('#file').onchange=e=>api.load(e.target.value);
+// The open song is kept in the URL hash (survives a refresh, can be shared as a link)
+// and in localStorage (opens again next visit). Precedence: hash, stored, first entry.
+const songKey='korspelare.song';
+const songFromHash=()=>{ try{return decodeURIComponent(location.hash.slice(1));}catch(e){return '';} };
+function selectSong(file){
+ const items=window.libraryItems||[]; const it=items.find(i=>i.file===file)||items[0]; if(!it) return;
+ $('#file').value=it.file; currentFile=it.file;
+ $('#notes').textContent=it.warnings&&it.warnings.length?T.notesHeading+'\n'+it.warnings.join('\n'):'';
+ history.replaceState(null,'','#'+encodeURI(it.file));
+ try{localStorage.setItem(songKey,it.file);}catch(e){}
+ api.load(it.file);
+}
+$('#file').onchange=e=>selectSong(e.target.value);
+window.addEventListener('hashchange',()=>{ const f=songFromHash(); if(f&&f!==currentFile) selectSong(f); });
 // Library: library.json (written by sync.py, git-ignored) lists {title, file, folder,
 // current, warnings}. Grouped by folder, current repertoire first. Without a library
 // the bundled test fixture is shown.
@@ -122,9 +135,10 @@ fetch('library.json').then(r=>r.ok?r.json():[]).catch(()=>[]).then(lib=>{
   list.forEach(it=>{const o=document.createElement('option');o.value=it.file;o.textContent=it.title+(it.warnings&&it.warnings.length?' ⚠':'');o.title=(it.warnings||[]).join('\n');og.appendChild(o);});
   sel.appendChild(og);});
  window.libraryItems=items;
- currentFile=items[0].file; api.load(items[0].file);
+ const known=f=>f&&items.some(i=>i.file===f);
+ let stored=''; try{stored=localStorage.getItem(songKey)||'';}catch(e){}
+ selectSong([songFromHash(),stored].find(known)||items[0].file);
 });
-$('#file').addEventListener('change',e=>{const it=(window.libraryItems||[]).find(i=>i.file===e.target.value); $('#notes').textContent=it&&it.warnings&&it.warnings.length?T.notesHeading+'\n'+it.warnings.join('\n'):'';});
 $('#play').onclick=()=>api.playPause();
 $('#stop').onclick=()=>api.stop();
 $('#loop').onchange=e=>{api.isLooping=e.target.checked; if(e.target.checked){$('#linear').checked=true;} setLinear($('#linear').checked);};
