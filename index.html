@@ -270,6 +270,25 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('keyup',e=>{ if(e.code==='Space'&&!typing(e.target)) e.preventDefault(); });
 document.addEventListener('click',e=>{ if(e.target&&e.target.tagName==='BUTTON') e.target.blur(); });
 
+// ---- iOS: the ring/silent switch must not mute the player ----
+// iOS treats plain Web Audio as "ambient" sound, which the silent switch cuts. Ask for
+// "playback" like a media app: the Audio Session API where Safari has it (16.4+), and
+// also a silent, looping <audio> element started from a tap (the "unmute" technique).
+// iOS only, so Android does not show a media notification for the silent clip.
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+if(isIOS){
+ try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}
+ // half a second of 8 kHz 16-bit mono silence as a WAV, so there is no file to serve
+ const n=8000, w=new DataView(new ArrayBuffer(44+n)), str=(o,s)=>[...s].forEach((c,i)=>w.setUint8(o+i,c.charCodeAt(0)));
+ str(0,'RIFF'); w.setUint32(4,36+n,true); str(8,'WAVEfmt '); w.setUint32(16,16,true); w.setUint16(20,1,true); w.setUint16(22,1,true);
+ w.setUint32(24,8000,true); w.setUint32(28,16000,true); w.setUint16(32,2,true); w.setUint16(34,16,true); str(36,'data'); w.setUint32(40,n,true);
+ const silent=new Audio(URL.createObjectURL(new Blob([w],{type:'audio/wav'})));
+ silent.loop=true; silent.setAttribute('playsinline','');
+ // iOS pauses it when the page is in the background; any later tap starts it again
+ const keep=()=>{ if(silent.paused) silent.play().catch(()=>{}); };
+ ['pointerdown','keydown'].forEach(t=>document.addEventListener(t,keep,true));
+}
+
 // ---- Mixer UI ----
 function paint(){
  document.querySelectorAll('.track').forEach((d,i)=>{
