@@ -57,7 +57,7 @@ staff bounds from `api.renderer.boundsLookup`. Combined with item 2 (hide the
 other parts) this also gives a one-staff "my part" view that fits any screen,
 which may be the simpler answer for phones.
 
-### 6. Respect the phone's status bar and notch (iPhone report, 2026-09-09)
+### 6. Respect the phone's status bar and notch (iPhone report, 2026-09-09) (done 2026-10-12, iPhone check pending)
 
 On an iPhone the top of the sidebar is hidden behind the clock, Wi-Fi and
 battery icons and the camera cut-out. Works otherwise.
@@ -69,6 +69,11 @@ no viewport meta at all yet, which is probably why it renders at desktop scale
 on phones; adding `width=device-width, initial-scale=1` is part of the same
 change and should be checked together with item 5, since both are about the
 phone layout.
+
+Done: viewport meta with `viewport-fit=cover`, safe-area padding on the body,
+and below 700px the sidebar stacks above the score (scrolls on its own, at most
+40% of the height). Checked in a 390px frame in the browser; the notch padding
+only shows on a real iPhone, so ask a tester to confirm.
 
 ### 7. iPhone: no sound while the ring/silent switch is on silent (2026-09-12)
 
@@ -102,7 +107,7 @@ did, backport that change instead of inventing one. Same anchor-once-or-abort
 rule as the existing patch, and a fixture case in `test/make_fixture.py`
 (F# quarter, F# quarter, G half in F major) to verify the rendering.
 
-### 9. Keep the selected song across a refresh, and remember it between visits (2026-09-12)
+### 9. Keep the selected song across a refresh, and remember it between visits (2026-09-12) (done 2026-10-12)
 
 A page refresh currently loads the first song in the library instead of the
 one that was open. Users also want the player to open on the song they had
@@ -117,11 +122,14 @@ when the URL has no hash. If the stored song is no longer in the library, fall
 back to the first current song. Order of precedence: URL hash, then stored
 song, then first entry.
 
+Done as planned. Changing songs uses `history.replaceState`, so the back button
+does not step through songs; pasting a song link into an open tab switches to it.
+
 ## Device reports
 
 - Android phones: works (several testers).
 - iPhone: works, including audio (first report 2026-09-09). Layout issue with
-  the status bar and notch, see item 6 (reported twice). Silent switch mutes
+  the status bar and notch, see item 6 (reported twice, fix awaiting a check). Silent switch mutes
   the player, see item 7.
 - One Android tablet: playback "extremely choppy" while the same site is fine
   on a phone. Most likely the synthesizer starving in the audio thread on a
