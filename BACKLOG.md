@@ -57,7 +57,7 @@ staff bounds from `api.renderer.boundsLookup`. Combined with item 2 (hide the
 other parts) this also gives a one-staff "my part" view that fits any screen,
 which may be the simpler answer for phones.
 
-### 6. Respect the phone's status bar and notch (iPhone report, 2026-09-09) (done 2026-10-12, iPhone check pending)
+### 6. Respect the phone's status bar and notch (iPhone report, 2026-09-09) (done 2026-10-12, confirmed on iPhone)
 
 On an iPhone the top of the sidebar is hidden behind the clock, Wi-Fi and
 battery icons and the camera cut-out. Works otherwise.
@@ -73,9 +73,9 @@ phone layout.
 Done: viewport meta with `viewport-fit=cover`, safe-area padding on the body,
 and below 700px the sidebar stacks above the score (scrolls on its own, at most
 40% of the height). Checked in a 390px frame in the browser; the notch padding
-only shows on a real iPhone, so ask a tester to confirm.
+only shows on a real iPhone; confirmed there.
 
-### 7. iPhone: no sound while the ring/silent switch is on silent (2026-09-12) (done 2026-10-12, iPhone check pending)
+### 7. iPhone: no sound while the ring/silent switch is on silent (2026-09-12) (done 2026-10-12, confirmed on iPhone)
 
 Reported by an iPhone user: with the side switch on silent the player is mute,
 although media apps still play in that state. iOS treats Web Audio as
@@ -94,7 +94,7 @@ Audio Session API (16.4+), and a silent looping `<audio>` (a half-second WAV
 built in the page) started on the first tap or key press and restarted on any
 later one if iOS paused it in the background. Checked in a desktop browser that
 the clip decodes, starts from a click and loops; whether it beats the silent
-switch can only be checked on an iPhone, together with item 6.
+switch could only be checked on an iPhone; confirmed there.
 
 ### 8. Patch alphaTab's note spelling locally (issue #2861) (2026-09-12) (superseded 2026-10-12)
 
@@ -139,8 +139,8 @@ does not step through songs; pasting a song link into an open tab switches to it
 
 - Android phones: works (several testers).
 - iPhone: works, including audio (first report 2026-09-09). Layout issue with
-  the status bar and notch, see item 6 (reported twice). Silent switch mutes
-  the player, see item 7. Fixes for both are in and need an iPhone check.
+  the status bar and notch, see item 6 (reported twice). Silent switch muted
+  the player, see item 7. Both fixed and confirmed on an iPhone.
 - One Android tablet: playback "extremely choppy" while the same site is fine
   on a phone. Most likely the synthesizer starving in the audio thread on a
   slow device. Things to try, in order: raise `player.bufferTimeInMilliseconds`
