@@ -140,8 +140,18 @@ song, then first entry.
   seen in Herr, wenn ich nur dich habe; waiting for Niklas's answers. See
   the BRF workflow notes.
 - Remove the alphaTab workarounds as upstream issues #2858–#2862 get fixed.
+  Status 2026-10-12: #2858, #2859, #2861, #2862 fixed on alphaTab `develop`
+  (6–7 Oct); #2860 closed as won't fix, so `fixJumps` stays. No npm build has
+  the fixes yet (newest is 1.9.0-alpha.1891 from 10 Aug; their nightly web
+  publish is failing). Agreed: wait for the next alpha, then bump
+  `patch_alphatab.py`, drop the patch, prepare.py steps 4–5 and the
+  register-before-load ordering, and test D.C./D.S. songs.
 - Snabbt jagar stormen våra år crashes SMB 25.5.5.1 (39 meter changes); find
   out which SMB version produced the May transcription.
 - Deploy with a key as user gabriel instead of root on voldemort (authorized_keys,
   `deploy_dir` owned by gabriel, `deploy_host: voldemort`), so `deploy.py` never
   waits for a password. Agreed 2026-09-12, deferred.
+- Scheduled sync: run `sync.py --only-current` (+ braille) and publish on a timer from an
+  always-on host, voldemort or a VM next to it, not the laptop. On voldemort the deploy step
+  becomes a local copy into /var/www/tkkspelare. Prerequisites: rclone with Drive access,
+  MuseScore 4 AppImage headless, Python 3. Agreed 2026-09-14, deferred.
