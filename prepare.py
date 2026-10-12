@@ -122,6 +122,8 @@ def abbrev(name):
     """Short part name shown on every system: S, A, T, B, with a divisi number
     (Sopran 2 -> S2, Ténor II -> T2, Bas 1 -> B1). Unknown names keep three letters."""
     n = norm(name)
+    trio = re.match(r'trio\s+(.+)$', n, re.I)   # Trio Tenor 1 -> Trio T1, apart from the choir's T1
+    if trio: return 'Trio ' + abbrev(trio.group(1))
     m = re.search(r'\b(\d+|I{1,3}V?)\s*$', n)
     num = (ROMAN.get(m.group(1), m.group(1)) if m else '')
     for pat, short in ABBREV:
@@ -313,9 +315,23 @@ def split_voices(root, partlist, names, copy_lyrics, unison_fill=False):
                 for m in part.findall('measure'):
                     for n in [n for n in m if n.tag == 'note' and voice_of(n) == v]: m.remove(n)
         voices = sorted({voice_of(n) for n in part.iter('note')}, key=int)
+        # names are looked up by part id (P1, P2 ...) before the part name, for scores
+        # where two staves have the same name (a solo trio and a choir both with tenors)
+        given = names.get(pid) or names.get(pname)
         if len(voices) < 2:
-            print(f'{pname}: 1 voice, kept'); continue
-        newnames = names.get(pname) or [f'{pname} {v}' for v in voices]
+            # only a one-name entry renames a single-voice part; the two-name defaults
+            # ("Herrar" -> Tenor, Bas) must not turn a unison "Herrar" into "Tenor"
+            if given and len(given) == 1:
+                sp.find('part-name').text = given[0]
+                ab = sp.find('part-abbreviation')
+                if ab is None:
+                    ab = ET.Element('part-abbreviation'); sp.insert(list(sp).index(sp.find('part-name')) + 1, ab)
+                ab.text = abbrev(given[0])
+                print(f'{pname}: 1 voice, kept, renamed {given[0]!r}')
+            else:
+                print(f'{pname}: 1 voice, kept')
+            continue
+        newnames = given or [f'{pname} {v}' for v in voices]
         counts = {v: sum(1 for n in part.iter('note') if voice_of(n) == v and n.find('lyric') is not None) for v in voices}
         donor = max(counts, key=counts.get) if copy_lyrics else None
         print(f'{pname}: voices {voices} -> {newnames}, lyrics per voice {counts}'
@@ -557,7 +573,7 @@ def parse_map(s):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('src'); ap.add_argument('dst')
-    ap.add_argument('--names', default='', help='rename split voices: "S/A=Sopran,Alt;T/B=Tenor,Bas"')
+    ap.add_argument('--names', default='', help='rename split voices: "S/A=Sopran,Alt;T/B=Tenor,Bas"; a key can also be a part id (P2), and a single-voice part takes one name')
     ap.add_argument('--explode', default='', help='split chord divisi: "Bas=Bas 1,Bas 2" (applied after --names)')
     ap.add_argument('--copy-lyrics', action='store_true', help='text-less voices borrow the text of the voice that has it')
     ap.add_argument('--unison-fill', action='store_true',

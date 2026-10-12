@@ -24,6 +24,8 @@ Per-song settings live in songs.json (committed; it holds titles, not music):
   }
 keyed by the .mscz file name without extension. DEFAULT_NAMES below covers the
 usual two-voice staves; songs.json only needs the exceptions.
+"names" keys are part names, or part ids (P1, P2 ...) where two staves share a
+name; a single-voice part takes a one-name list and is just renamed.
 
 Machine-specific paths go in sync.local.json (git-ignored). Top-level keys apply
 everywhere; a "hosts" block keyed by host name (case-insensitive) overrides them,

@@ -18,6 +18,26 @@
   "title": "Un soir de neige 4, La nuit, le froid, la solitude - Poulenc"
  },
  "Franz_Biebl-Ave_Maria": {
-  "title": "Ave Maria - Biebl"
+  "title": "Ave Maria - Biebl",
+  "names": {
+   "P1": [
+    "Solo"
+   ],
+   "P2": [
+    "Trio Tenor 1",
+    "Trio Tenor 2"
+   ],
+   "P3": [
+    "Trio Bas"
+   ],
+   "P4": [
+    "Tenor 1",
+    "Tenor 2"
+   ],
+   "P5": [
+    "Bas 1",
+    "Bas 2"
+   ]
+  }
  }
 }
