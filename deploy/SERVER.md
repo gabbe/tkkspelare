@@ -34,6 +34,30 @@ Adding or changing the shared login later:
 sudo htpasswd /etc/apache2/tkkspelare.htpasswd kammarkoren
 ```
 
+## Secret link without the password dialog
+
+Some singers find the login dialog too hard. They get a link with a long
+random token in the path instead, `https://spelare.thnkk.se/<token>/`, which
+serves the same site without a login. The token is kept only on the server:
+
+```bash
+echo "Define TKK_SECRET $(openssl rand -hex 16)" | sudo tee /etc/apache2/tkkspelare-secret.conf
+sudo cat /etc/apache2/tkkspelare-secret.conf        # the token to put in the link
+```
+
+certbot copied the `:80` site into `spelare.thnkk.se-le-ssl.conf` when it set up
+HTTPS, so the `Include`, `Alias`, `RedirectMatch`, `<Location>` and
+`Referrer-Policy` lines from `spelare.thnkk.se.conf` must be added there too
+(the `Include` outside `<IfModule>`/`<VirtualHost>`, at the top of the file).
+Then `sudo apachectl configtest && sudo systemctl reload apache2`.
+
+To revoke the link (it has been forwarded outside the choir), write a new
+token and reload. The normal login keeps working throughout.
+
+Do not use `https://user:password@spelare.thnkk.se`: browsers refuse
+`fetch()` from a page whose address contains credentials, so the song list
+fails to load and only the test songs show.
+
 ## Deploying from the digitiser's machine
 
 `deploy.py` in the repo root runs the Drive sync and copies the site to the
