@@ -81,10 +81,11 @@ py deploy.py --all           # sync everything under "2. MuseScore"
 py deploy.py --no-sync       # upload what is already in noter/ and library.json
 ```
 
-What goes up: `index.html`, `robots.txt`, `vendor/`, `icons/`, `noter/`, `library.json`
+What goes up: `index.html`, `robots.txt`, `vendor/`, `img/`, `noter/`, `library.json`
 and `test/`. Nothing else from the repo. Files removed from Drive are removed
 from the server as well, since the upload replaces the whole site directory
-atomically (uploaded next to it, then swapped).
+atomically (uploaded next to it, then swapped). The app icons live in `img/`,
+not `icons/`: Debian's Apache aliases `/icons/` to its own directory listing icons.
 
 ## Checks after the first deploy
 
