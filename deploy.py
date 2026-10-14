@@ -15,7 +15,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from sync import load_local
 SITE_FILES = ['index.html', 'robots.txt', 'library.json']
-SITE_DIRS = ['vendor', 'noter', 'test']
+SITE_DIRS = ['vendor', 'noter', 'test', 'icons']
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
