@@ -230,3 +230,22 @@ cursor. Pinch zoom not done.
   always-on host, voldemort or a VM next to it, not the laptop. On voldemort the deploy step
   becomes a local copy into /var/www/tkkspelare. Prerequisites: rclone with Drive access,
   MuseScore 4 AppImage headless, Python 3. Agreed 2026-09-14, deferred.
+- sync.py leaves stale exports behind (2026-11-05). When a score leaves Aktuellt on
+  Drive (moved or deleted), its `.mxl` and `.json` stay in `noter/`. library.json drops the
+  entry, so the player does not list it, but deploy.py still uploads the file. Seen with
+  Gläns över sjö och strand (Widén), removed by hand. Plan: at the end of a sync, delete
+  files in the synced `noter/` folders that no entry in library.json produced (`.mxl` and
+  its `.json` sidecar). With `--only-current`, touch only `noter/Aktuellt/`. Print each
+  deleted file, as for exports.
+- Drive sync stops without anyone noticing (2026-11-05). The rclone bisync on fritz
+  (`sync-digitala-noter.timer`, `~/bin/sync-drive`) failed on every run from 4 Nov 20:07
+  until 5 Nov 21:23 ("Bisync aborted. Must run --resync"). Cause: midi files in
+  `4. Punktnoter` moved locally could not be deleted on Drive (owned by another
+  account, 403). The local copy went stale and a deploy published the wrong songs. Fixed by
+  pulling Drive one-way and running `--resync`. Plan, two parts: (1) `OnFailure=` on
+  the service, running a small unit that shows a desktop notification (`notify-send`)
+  and/or sends a mail, so the first failure is seen. (2) deploy.py refuses to
+  sync/upload when the last successful bisync is older than about an hour (read the time
+  of the last "Bisync successful" in `~/.local/state/rclone/sync-digitala-noter.log`),
+  with `--stale-ok` to override. Only where that log exists (fritz); on RADISH the
+  source is the Google Drive client and there is no bisync to check.
