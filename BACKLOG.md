@@ -186,6 +186,36 @@ percentage returns to the default (90%, or 60% on screens at most 700px wide or 
 and forgets the choice. Re-render 350 ms after the last click, then back to the
 cursor. Pinch zoom not done.
 
+### 12. Pinch zoom on the score (2026-11-05, waiting for tester input)
+
+Follow-up to item 11. Today a pinch zooms the whole page (the browser's own zoom):
+the toolbar grows too, the score does not reflow, and the user has to scroll
+sideways. Users probably try this already, by habit, so a real pinch zoom would
+replace something that behaves badly. First ask the testers whether they pinch;
+if not, the buttons are enough and this item can wait.
+
+Leaning (2026-11-05): leave it as it is. The browser's pinch zoom is
+also useful as a magnifier: zoom in on one bar to read the text or the notes
+closely, then zoom out again. The pinch zoom planned here would remove that. Decide when the
+testers have answered.
+
+Plan: `touch-action: pan-x pan-y` on `#main` only, so the browser no longer zooms
+the score but the toolbar and the panel can still be zoomed. Two-finger
+`touchstart`/`touchmove` on `#main` measures the finger distance and shows a live
+CSS `transform: scale()` of the rendered score (origin at the pinch centre). On
+`touchend` the factor is applied to the current zoom, snapped to the nearest step
+in `zoomSteps`, and passed to `setZoom(v, true)`, so pinch and buttons share one
+remembered value and one debounced re-render. Remember the bar under the pinch centre
+before the re-render and scroll back to it afterwards: the systems reflow (bars move
+between lines), so without this the user loses their place. Keep the scaled image
+until `renderFinished` so the screen is never blank.
+
+Risks: iOS Safari has its own pinch gestures (`gesturestart`/`gesturechange`); check
+whether `touch-action` alone stops the page zoom there, otherwise also call
+`preventDefault` on the gesture events. Test on a real iPhone and an older Android. Accessibility:
+the score can then not be pinched past the largest step, so raise the top
+step to 2.0 (and add it to the buttons) for users who need large notes.
+
 ## Device reports
 
 - Android phones: works (several testers).
