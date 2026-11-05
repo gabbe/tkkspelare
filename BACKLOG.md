@@ -137,7 +137,7 @@ does not step through songs; pasting a song link into an open tab switches to it
 
 ## From the testers, second round (2026-11-05)
 
-### 10. Collapse the controls to give the score more room (built 2026-11-05, works on a desktop; phone check pending)
+### 10. Collapse the controls to give the score more room (done 2026-11-05, confirmed on desktop, Android and iPhone)
 
 Users want to fold the control panel away while reading or playing. On a phone
 the sidebar takes up to 40% of the height above the score (item 6); on a desktop
@@ -165,7 +165,7 @@ Built: a toolbar above the score (☰ panel toggle, ▶/❚❚, ■, zoom). Coll
 default on screens at most 500px high, unless the user has chosen. alphaTab
 re-lays out by itself on the width change (ResizeObserver), so no render call.
 
-### 11. Zoom out and in to see more bars at once, especially on phones (built 2026-11-05, works on a desktop; phone check pending)
+### 11. Zoom out and in to see more bars at once, especially on phones (done 2026-11-05, confirmed on desktop, Android and iPhone)
 
 The score is rendered at a fixed `display.scale` of 0.9 in `index.html`. On a
 phone that gives one or two bars per system.
