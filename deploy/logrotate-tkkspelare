@@ -1,0 +1,17 @@
+# Choir player (spelare.thnkk.se): 90 days of raw logs (they hold IP addresses).
+# Weekly summaries without IPs are kept in /var/lib/tkkspelare-stats.
+/var/log/apache2/spelare/*.log {
+	daily
+	missingok
+	rotate 90
+	compress
+	delaycompress
+	notifempty
+	create 640 root adm
+	sharedscripts
+	postrotate
+		if pgrep -f ^/usr/sbin/apache2 > /dev/null; then
+			invoke-rc.d apache2 reload 2>&1 | logger -t apache2.logrotate
+		fi
+	endscript
+}

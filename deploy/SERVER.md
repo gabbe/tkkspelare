@@ -95,3 +95,35 @@ not `icons/`: Debian's Apache aliases `/icons/` to its own directory listing ico
   the same login and the browser reuses the credentials.
 - `curl -I https://spelare.thnkk.se/library.json` without credentials must
   return `401`.
+
+## Logs and weekly usage statistics
+
+The site logs to `/var/log/apache2/spelare/` (`access.log`, `error.log`), outside
+the `*.log` glob of Debian's Apache logrotate, so it can have its own retention:
+90 days of raw logs (they hold IP addresses), see `logrotate-tkkspelare`.
+Before 2026-11-05 the logs were `/var/log/apache2/spelare-*.log` (14 days).
+
+Every Monday at 06:00 `weekly_stats.py` summarises the previous week (Mon–Sun)
+into `/var/lib/tkkspelare-stats/<year>-W<week>.txt` and `.json`, and rebuilds
+`total.txt` over all saved weeks. The summaries hold counts only (visitors, opened
+songs per song, days, hours, devices, password vs. secret link), no IP addresses,
+and are kept indefinitely. "Opened" means the song's `.mxl` was fetched; playback
+happens in the browser and is not logged. Visitors are IP + browser, so one singer
+on phone and computer counts twice.
+
+Setup (done 2026-11-05):
+
+```sh
+sudo install -d -o root -g adm -m 750 /var/log/apache2/spelare
+sudo cp deploy/logrotate-tkkspelare /etc/logrotate.d/tkkspelare
+sudo install -D -m 755 deploy/weekly_stats.py /usr/local/lib/tkkspelare/weekly_stats.py
+sudo cp deploy/tkkspelare-stats.service deploy/tkkspelare-stats.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now tkkspelare-stats.timer
+# point ErrorLog/CustomLog of both vhosts (:80 and -le-ssl) at spelare/, then
+sudo apache2ctl configtest && sudo systemctl reload apache2
+```
+
+Reading: `ssh root@voldemort cat /var/lib/tkkspelare-stats/total.txt` (or a
+week's `.txt`). Re-run a week with `weekly_stats.py --week 2026-W45`, or all
+weeks still in the logs with `--backfill`. After changing the script, install
+it again with the `install` line above.

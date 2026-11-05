@@ -1,0 +1,6 @@
+[Unit]
+Description=Weekly usage summary for the choir player (spelare.thnkk.se)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/tkkspelare/weekly_stats.py
