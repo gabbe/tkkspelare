@@ -39,5 +39,26 @@
     "Bas 2"
    ]
   }
+ },
+ "Its_the_most_wonderful": {
+  "title": "It's the most wonderful time of the year",
+  "names": {
+   "Sop/Alt": [
+    "Sopran",
+    "Alt"
+   ]
+  }
+ },
+ "A babe is born v3": {
+  "title": "A babe is born"
+ },
+ "Deck the hall_Willcock": {
+  "title": "Deck the hall"
+ },
+ "Jingle,_bells": {
+  "title": "Jingle Bells"
+ },
+ "Elgar_The_Snow": {
+  "title": "The Snow - Elgar"
  }
 }
