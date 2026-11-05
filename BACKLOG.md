@@ -135,6 +135,52 @@ song, then first entry.
 Done as planned. Changing songs uses `history.replaceState`, so the back button
 does not step through songs; pasting a song link into an open tab switches to it.
 
+## From the testers, second round (2026-11-05)
+
+### 10. Collapse the controls to give the score more room (built 2026-11-05, works on a desktop; phone check pending)
+
+Users want to fold the control panel away while reading or playing. On a phone
+the sidebar takes up to 40% of the height above the score (item 6); on a desktop
+it is a fixed 320px column.
+
+Plan: a small toggle button that stays visible when the panel is collapsed
+(top corner of the score area, inside the safe-area padding). It sets a class
+on `body` that hides `#side`: on the desktop the grid becomes a single column,
+on phones the row disappears. Play/pause and stop should still be reachable
+when the panel is collapsed, so the button bar shows ▶/❚❚ next to the toggle
+(space already works on keyboards, item 3). Remember the state in
+`localStorage`, like the song (item 9). The score's width changes, so alphaTab
+has to lay out again: call `api.render()` after the toggle (alphaTab may pick
+up the resize on its own; check before adding the call).
+
+Phone in landscape (tester comment, 2026-11-05): a phone held sideways is wider than
+700px (about 844px on a recent iPhone), so it gets the desktop layout. The
+320px sidebar then takes over a third of the width, and the screen is only about 390px high. Collapsing
+has to work the same way there, and is most useful there. Consider making
+"collapsed" the default when the screen is short (`max-height: 500px`) and the
+user has not chosen a state, so that turning the phone gives the full width
+to the score.
+
+Built: a toolbar above the score (☰ panel toggle, ▶/❚❚, ■, zoom). Collapsed by
+default on screens at most 500px high, unless the user has chosen. alphaTab
+re-lays out by itself on the width change (ResizeObserver), so no render call.
+
+### 11. Zoom out and in to see more bars at once, especially on phones
+
+The score is rendered at a fixed `display.scale` of 0.9 in `index.html`. On a
+phone that gives one or two bars per system.
+
+Plan: − / + buttons (and a reset to 100%) that change `api.settings.display.scale`
+in steps, for example 0.5 to 1.5, then `api.updateSettings(); api.render()`.
+Keep the value in `localStorage`. Use a lower default below 700px, for example
+0.6, until the user picks a value. Re-rendering a long score takes a moment, so
+apply the change a short time after the last click, not on every click. Pinch
+zoom is the gesture phones expect; it can be added later by mapping a pinch on
+`#main` to the same scale setting, but the buttons come first. The zoom
+buttons belong in the button bar of item 10, so that they are still visible when the
+panel is collapsed. Related to item 5: smaller notes also reduce the
+need to follow a single part.
+
 ## Device reports
 
 - Android phones: works (several testers).

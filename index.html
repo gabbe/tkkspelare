@@ -15,8 +15,14 @@ body{font-family:system-ui,sans-serif;margin:0;display:grid;grid-template-column
  #side{max-height:40vh;max-height:40dvh;border-right:none;border-bottom:1px solid #ccc}
  #file{max-width:100%!important}
 }
+/* Collapsed panel: the score gets the whole screen, the toolbar stays */
+body.collapsed{grid-template-columns:1fr;grid-template-rows:1fr}
+body.collapsed #side{display:none}
 #side{padding:12px;border-right:1px solid #ccc;overflow:auto;font-size:14px}
-#main{overflow:auto;position:relative}
+#score{display:flex;flex-direction:column;min-width:0;min-height:0}
+#toolbar{display:flex;align-items:center;gap:2px;padding:2px 4px;border-bottom:1px solid #ddd;background:#fafafa}
+#toolbar button{min-width:2.2em;padding:4px 8px;font-size:15px}
+#main{overflow:auto;position:relative;flex:1;min-height:0}
 .track,.panel{border:1px solid #ddd;padding:6px;margin:6px 0;border-radius:6px}
 .track b{display:block}
 button{margin:2px;border:1px solid #999;background:#f4f4f4;border-radius:4px;padding:2px 8px;cursor:pointer}
@@ -49,7 +55,10 @@ label{display:block;margin:4px 0}
 <p data-t="keysHint" style="font-size:11px;color:#666"></p>
 <pre id="notes" style="white-space:pre-wrap;font-size:11px;color:#666"></pre>
 </div>
+<div id="score">
+<div id="toolbar"><button id="panel"></button><button id="tplay">▶ / ❚❚</button><button id="tstop">■</button></div>
 <div id="main"><div id="at"></div></div>
+</div>
 <!-- Locally patched alphaTab (repeats before jumps), see patch_alphatab.py -->
 <script src="vendor/alphaTab.js"></script>
 <script>
@@ -65,7 +74,8 @@ const T={
  presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
  rootFolder:'Övrigt', fixtureFolder:'Test', notesHeading:'Anmärkningar från förberedningen (för digitaliserarna):',
  bookmarksHeading:'Bokmärken', rehearsalMark:(bar,name)=>`${name} (takt ${bar})`, bookmarkAdd:bar=>`Bokmärk takt ${bar}`,
- keysHint:'Tangenter: mellanslag spela/pausa · ← → takt · Home början', bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
+ keysHint:'Tangenter: mellanslag spela/pausa · ← → takt · Home början',
+ panelHide:'Dölj kontrollerna', panelShow:'Visa kontrollerna', bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
  report:bar=>`Rapportera fel i takt ${bar}`, reportEmail:'gabriel_tkkspelare@thornblad.com',
  reportSubject:(title,bar)=>`Notfel: ${title}, takt ${bar}`,
  reportBody:(title,bar,file,mixer)=>`Sång: ${title}\nTakt: ${bar}\nFil: ${file}\nMixer: ${mixer}\n\nVad är fel (stämma, ton, text, rytm ...)?\n\n`,
@@ -152,8 +162,8 @@ fetch('library.json').then(r=>r.ok?r.json():[]).catch(()=>[]).then(lib=>{
  let stored=''; try{stored=localStorage.getItem(songKey)||'';}catch(e){}
  selectSong([songFromHash(),stored].find(known)||items[0].file);
 });
-$('#play').onclick=()=>api.playPause();
-$('#stop').onclick=()=>api.stop();
+$('#play').onclick=$('#tplay').onclick=()=>api.playPause();
+$('#stop').onclick=$('#tstop').onclick=()=>api.stop();
 $('#loop').onchange=e=>{api.isLooping=e.target.checked; if(e.target.checked){$('#linear').checked=true;} setLinear($('#linear').checked);};
 $('#linear').onchange=e=>setLinear(e.target.checked);
 $('#metro').onchange=e=>api.metronomeVolume=e.target.checked?1:0;
@@ -272,6 +282,22 @@ document.addEventListener('keydown',e=>{
 // a focused button would still fire its click on keyup after a space
 document.addEventListener('keyup',e=>{ if(e.code==='Space'&&!typing(e.target)) e.preventDefault(); });
 document.addEventListener('click',e=>{ if(e.target&&e.target.tagName==='BUTTON') e.target.blur(); });
+
+// ---- Collapsible control panel ----
+// The user's choice is remembered in this browser. Without a choice the panel starts
+// collapsed on short screens (a phone held sideways gets the desktop layout, where the
+// sidebar would take a third of the width) and follows the phone when it is turned.
+// alphaTab notices the new width itself (ResizeObserver) and lays out again.
+const panelKey='korspelare.panel', shortScreen=matchMedia('(max-height:500px)');
+function setPanel(open){
+ document.body.classList.toggle('collapsed',!open);
+ $('#panel').textContent=open?'☰ ◂':'☰ ▸'; $('#panel').title=open?T.panelHide:T.panelShow;
+}
+const storedPanel=()=>{ try{return localStorage.getItem(panelKey);}catch(e){return null;} };
+const defaultPanel=()=>{ const s=storedPanel(); setPanel(s?s==='open':!shortScreen.matches); };
+defaultPanel(); shortScreen.addEventListener('change',()=>{ if(!storedPanel()) defaultPanel(); });
+$('#panel').onclick=()=>{ const open=document.body.classList.contains('collapsed');
+ setPanel(open); try{localStorage.setItem(panelKey,open?'open':'closed');}catch(e){} };
 
 // ---- iOS: the ring/silent switch must not mute the player ----
 // iOS treats plain Web Audio as "ambient" sound, which the silent switch cuts. Ask for
