@@ -165,7 +165,7 @@ Built: a toolbar above the score (☰ panel toggle, ▶/❚❚, ■, zoom). Coll
 default on screens at most 500px high, unless the user has chosen. alphaTab
 re-lays out by itself on the width change (ResizeObserver), so no render call.
 
-### 11. Zoom out and in to see more bars at once, especially on phones
+### 11. Zoom out and in to see more bars at once, especially on phones (built 2026-11-05, works on a desktop; phone check pending)
 
 The score is rendered at a fixed `display.scale` of 0.9 in `index.html`. On a
 phone that gives one or two bars per system.
@@ -180,6 +180,11 @@ zoom is the gesture phones expect; it can be added later by mapping a pinch on
 buttons belong in the button bar of item 10, so that they are still visible when the
 panel is collapsed. Related to item 5: smaller notes also reduce the
 need to follow a single part.
+
+Built: − / % / + in the toolbar, steps 40–150%, also the + and - keys; clicking the
+percentage returns to the default (90%, or 60% on screens at most 700px wide or 500px high)
+and forgets the choice. Re-render 350 ms after the last click, then back to the
+cursor. Pinch zoom not done.
 
 ## Device reports
 

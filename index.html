@@ -22,6 +22,8 @@ body.collapsed #side{display:none}
 #score{display:flex;flex-direction:column;min-width:0;min-height:0}
 #toolbar{display:flex;align-items:center;gap:2px;padding:2px 4px;border-bottom:1px solid #ddd;background:#fafafa}
 #toolbar button{min-width:2.2em;padding:4px 8px;font-size:15px}
+#toolbar .gap{flex:1}
+#zoomv{min-width:3.6em}
 #main{overflow:auto;position:relative;flex:1;min-height:0}
 .track,.panel{border:1px solid #ddd;padding:6px;margin:6px 0;border-radius:6px}
 .track b{display:block}
@@ -56,7 +58,8 @@ label{display:block;margin:4px 0}
 <pre id="notes" style="white-space:pre-wrap;font-size:11px;color:#666"></pre>
 </div>
 <div id="score">
-<div id="toolbar"><button id="panel"></button><button id="tplay">▶ / ❚❚</button><button id="tstop">■</button></div>
+<div id="toolbar"><button id="panel"></button><button id="tplay">▶ / ❚❚</button><button id="tstop">■</button><span class="gap"></span>
+<button id="zoomout">−</button><button id="zoomv"></button><button id="zoomin">+</button></div>
 <div id="main"><div id="at"></div></div>
 </div>
 <!-- Locally patched alphaTab (repeats before jumps), see patch_alphatab.py -->
@@ -74,8 +77,9 @@ const T={
  presets:[['','(som i filen)'],['0','Piano'],['52','Kör (aahs)'],['53','Röst (oohs)'],['19','Kyrkorgel'],['73','Flöjt'],['48','Stråkar']],
  rootFolder:'Övrigt', fixtureFolder:'Test', notesHeading:'Anmärkningar från förberedningen (för digitaliserarna):',
  bookmarksHeading:'Bokmärken', rehearsalMark:(bar,name)=>`${name} (takt ${bar})`, bookmarkAdd:bar=>`Bokmärk takt ${bar}`,
- keysHint:'Tangenter: mellanslag spela/pausa · ← → takt · Home början',
- panelHide:'Dölj kontrollerna', panelShow:'Visa kontrollerna', bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
+ keysHint:'Tangenter: mellanslag spela/pausa · ← → takt · Home början · + − zoom',
+ panelHide:'Dölj kontrollerna', panelShow:'Visa kontrollerna',
+ zoomOut:'Zooma ut (fler takter)', zoomIn:'Zooma in (större noter)', zoomReset:'Tillbaka till standardstorlek', bookmarkName:bar=>`Namn på bokmärket (takt ${bar}):`, bookmarkRemove:'ta bort',
  report:bar=>`Rapportera fel i takt ${bar}`, reportEmail:'gabriel_tkkspelare@thornblad.com',
  reportSubject:(title,bar)=>`Notfel: ${title}, takt ${bar}`,
  reportBody:(title,bar,file,mixer)=>`Sång: ${title}\nTakt: ${bar}\nFil: ${file}\nMixer: ${mixer}\n\nVad är fel (stämma, ton, text, rytm ...)?\n\n`,
@@ -94,6 +98,14 @@ const settings={
  player:{enablePlayer:true,enableCursor:true,enableUserInteraction:true,soundFont:new URL('vendor/soundfont/sonivox.sf3',location.href).href,scrollElement:main},
  display:{layoutMode:'page',scale:0.9}
 };
+// Zoom: the user's choice is remembered in this browser; without one, small screens
+// start smaller so that more bars fit. Read before the API is created, so the first
+// render already uses it.
+const zoomKey='korspelare.zoom', zoomSteps=[0.4,0.5,0.6,0.7,0.8,0.9,1,1.1,1.25,1.5];
+const smallScreen=matchMedia('(max-width:700px), (max-height:500px)');
+const defaultZoom=()=>smallScreen.matches?0.6:0.9;
+const storedZoom=()=>{ try{const v=parseFloat(localStorage.getItem(zoomKey)); return zoomSteps.includes(v)?v:null;}catch(e){return null;} };
+settings.display.scale=storedZoom()||defaultZoom();
 const api=new alphaTab.AlphaTabApi($('#at'),settings);
 let score=null;
 // Mixer state lives here, not in the synth: alphaTab re-applies its own idea of the
@@ -278,6 +290,7 @@ document.addEventListener('keydown',e=>{
  else if(e.code==='Home'){ e.preventDefault(); api.tickPosition=0; api.scrollToCursor(); }
  else if(!onControl&&e.code==='ArrowLeft'){ e.preventDefault(); gotoBar(Math.max(1,currentBar()-1)); }
  else if(!onControl&&e.code==='ArrowRight'){ e.preventDefault(); gotoBar(currentBar()+1); }
+ else if(!onControl&&!e.ctrlKey&&!e.metaKey&&['+','-'].includes(e.key)){ e.preventDefault(); stepZoom(e.key==='+'?1:-1); }
 });
 // a focused button would still fire its click on keyup after a space
 document.addEventListener('keyup',e=>{ if(e.code==='Space'&&!typing(e.target)) e.preventDefault(); });
@@ -298,6 +311,33 @@ const defaultPanel=()=>{ const s=storedPanel(); setPanel(s?s==='open':!shortScre
 defaultPanel(); shortScreen.addEventListener('change',()=>{ if(!storedPanel()) defaultPanel(); });
 $('#panel').onclick=()=>{ const open=document.body.classList.contains('collapsed');
  setPanel(open); try{localStorage.setItem(panelKey,open?'open':'closed');}catch(e){} };
+
+// ---- Zoom (− / + in the toolbar, also the + and - keys) ----
+// Re-rendering a long score takes a moment, so it starts a short while after the last
+// click; the label updates at once. Afterwards the view returns to the cursor.
+let zoom=settings.display.scale, zoomTimer=0, zoomPending=false;
+function paintZoom(){
+ $('#zoomv').textContent=Math.round(zoom*100)+'%';
+ $('#zoomout').disabled=zoom<=zoomSteps[0]; $('#zoomin').disabled=zoom>=zoomSteps[zoomSteps.length-1];
+}
+function setZoom(v,remember){
+ zoom=v; paintZoom();
+ try{ if(remember) localStorage.setItem(zoomKey,String(v)); else localStorage.removeItem(zoomKey); }catch(e){}
+ clearTimeout(zoomTimer);
+ zoomTimer=setTimeout(()=>{ if(api.settings.display.scale===zoom) return;
+  api.settings.display.scale=zoom; api.updateSettings(); zoomPending=true; api.render(); },350);
+}
+function stepZoom(dir){
+ const i=zoomSteps.indexOf(zoom), j=Math.min(zoomSteps.length-1,Math.max(0,(i<0?zoomSteps.indexOf(0.9):i)+dir));
+ setZoom(zoomSteps[j],true);
+}
+api.renderFinished.on(()=>{ if(zoomPending){ zoomPending=false; api.scrollToCursor(); } });
+$('#zoomout').onclick=()=>stepZoom(-1); $('#zoomin').onclick=()=>stepZoom(1);
+$('#zoomv').onclick=()=>setZoom(defaultZoom(),false);
+$('#zoomout').title=T.zoomOut; $('#zoomin').title=T.zoomIn; $('#zoomv').title=T.zoomReset;
+// turning a phone changes the default; follow it unless the user has chosen a size
+smallScreen.addEventListener('change',()=>{ if(!storedZoom()) setZoom(defaultZoom(),false); });
+paintZoom();
 
 // ---- iOS: the ring/silent switch must not mute the player ----
 // iOS treats plain Web Audio as "ambient" sound, which the silent switch cuts. Ask for
