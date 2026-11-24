@@ -41,6 +41,8 @@ What it does, in order:
      beats (Rehnqvist, Tenor bar 36) should stay one part: the transcriber
      writes the divisi as in-accord, and the singer sees both lines. Splitting
      would either drop the second voice or make a "Tenor 2" of 55 bars of rest.
+  8. --drop "Piano": remove whole parts by name or part id, before step 1. For a
+     piano reduction marked "for rehearsal only" that just doubles the choir.
 """
 import argparse, copy, re, sys, zipfile
 import xml.etree.ElementTree as ET
@@ -546,6 +548,28 @@ def keep_only(root, partlist, preference):
     print(f'kept only {pick!r}')
     return pick
 
+def drop_parts(root, partlist, drop):
+    """Remove whole parts by name or part id: a "for rehearsal only" piano reduction that
+    just doubles the choir has no place in the player. Done first, so the dropped part
+    is not split or reported on. System marks move to the new top part if the top goes."""
+    wanted = {norm(n) for n in drop}; top = root.find('part'); gone = []
+    for sp in list(partlist.findall('score-part')):
+        name = norm(sp.findtext('part-name'))
+        if name not in wanted and sp.get('id') not in wanted: continue
+        part = root.find(f"part[@id='{sp.get('id')}']")
+        if part is top:
+            rest = [p for p in root.findall('part') if p is not part]
+            if not rest: raise SystemExit('--drop would remove every part')
+            carry_system_marks(top, rest[0]); top = rest[0]
+        partlist.remove(sp); root.remove(part); gone.append(name or sp.get('id'))
+    if not gone or len(gone) < len(wanted):
+        names = [norm(sp.findtext('part-name')) for sp in partlist.findall('score-part')]
+        print(f'--drop: asked for {sorted(wanted)}, removed {gone}; remaining parts are {names}')
+    if gone:
+        for pg in list(partlist.findall('part-group')):   # brackets/braces may now span removed parts
+            partlist.remove(pg)
+        print(f'dropped parts: {", ".join(gone)}')
+
 def parse_map(s):
     out = {}
     for item in filter(None, s.split(';')):
@@ -561,6 +585,7 @@ def main():
     ap.add_argument('--copy-lyrics', action='store_true', help='text-less voices borrow the text of the voice that has it')
     ap.add_argument('--unison-fill', action='store_true',
                     help='a bar where a lower voice has no notes is sung in unison: copy voice 1 instead of a rest')
+    ap.add_argument('--drop', default='', help='remove whole parts by name or id before anything else: "Piano" (a rehearsal-only reduction)')
     ap.add_argument('--only', default='', help='keep a single part, first match wins: "Tenor 2,Tenor" (for braille)')
     ap.add_argument('--divisi-bars', type=int, default=2, metavar='N',
                     help='report a part that divides for N bars or more (default 2)')
@@ -571,6 +596,7 @@ def main():
     data, inner = read(a.src)
     root = ET.fromstring(data)
     partlist = root.find('part-list')
+    if a.drop: drop_parts(root, partlist, [x.strip() for x in a.drop.split(',') if x.strip()])
     divisi_report(root, partlist, a.divisi_bars)
     if not a.no_split:
         split_voices(root, partlist, parse_map(a.names), a.copy_lyrics, a.unison_fill)

@@ -112,10 +112,11 @@ def export(musescore, src, dst):
     if r.returncode != 0 or not dst.exists():
         raise RuntimeError(f'MuseScore export failed (exit {r.returncode}): {r.stderr.strip()[-300:]}')
 
-def prepare(src, dst, names, explode, only=None, no_split=False):
+def prepare(src, dst, names, explode, only=None, no_split=False, drop=None):
     cmd = [sys.executable, str(HERE / 'prepare.py'), str(src), str(dst), '--copy-lyrics', '--unison-fill', '--names', names_arg(names)]
     if explode: cmd += ['--explode', names_arg(explode)]
     if only: cmd += ['--only', ','.join(only)]
+    if drop: cmd += ['--drop', ','.join(drop)]
     if no_split: cmd.append('--no-split')
     env = dict(os.environ, PYTHONIOENCODING='utf-8')
     r = subprocess.run(cmd, capture_output=True, text=True, encoding='utf8', errors='replace', env=env)
@@ -123,7 +124,7 @@ def prepare(src, dst, names, explode, only=None, no_split=False):
         raise RuntimeError(f'prepare.py failed: {(r.stderr or r.stdout).strip()[-400:]}')
     # anything prepare.py reports about the score (not the routine "kept" / "wrote" lines)
     return [l.strip() for l in r.stdout.splitlines()
-            if l.strip() and not re.match(r'(wrote|.*: 1 voice, kept|tied-over notes|jump directions|system marks|tempo marks|short measures|kept only)', l.strip())]
+            if l.strip() and not re.match(r'(wrote|.*: 1 voice, kept|tied-over notes|jump directions|system marks|tempo marks|short measures|kept only|dropped parts)', l.strip())]
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -178,7 +179,7 @@ def main():
                 with tempfile.TemporaryDirectory() as td:
                     full = pathlib.Path(td) / 'full.mxl'
                     export(a.musescore, src, full)
-                    warnings = prepare(full, out, names, cfg.get('explode'))
+                    warnings = prepare(full, out, names, cfg.get('explode'), drop=cfg.get('drop'))
                     hint = musicxml_title(full)
                     if a.braille_dir:
                         bdir = pathlib.Path(a.braille_dir); bdir.mkdir(parents=True, exist_ok=True)

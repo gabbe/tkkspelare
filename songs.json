@@ -63,5 +63,10 @@
  },
  "Elgar_The_Snow": {
   "title": "The Snow - Elgar"
+ },
+ "Carol_of_the_Bells": {
+  "drop": [
+   "Piano"
+  ]
  }
 }
