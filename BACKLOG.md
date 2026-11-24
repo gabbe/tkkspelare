@@ -231,6 +231,38 @@ step to 2.0 (and add it to the buttons) for users who need large notes.
   competes for CPU at load; ask the tester for device model, Android version
   and browser, and whether other web audio sites stutter as well.
 
+## To look at after the alphaTab 1.9.0 upgrade (2026-11-24)
+
+Found while comparing all 276 scores (main library and thornblad) between
+1.8.4 and 1.9.0. Nothing here blocks the upgrade; each needs Gabriel's eye or ear.
+
+- Listen to the sound (1.9.0 decodes the soundfont with its own Vorbis code) and
+  look at the layout on a real phone before deploying. Only playback order, bar
+  lengths and tempo were compared, in the desktop preview.
+- Two scores fail in MuseScore's command-line export (exit 1320, both attempts)
+  and are missing from the library: `Det är en ros utsprungen - Sköld.mscz` and
+  `Tomorrow_shall_be_my_dancing_day v3.mscz`. Open them in MuseScore and re-save,
+  or mark them `skip` in songs.json. Not known whether they were on the site before.
+- Nu är det gott att leva: D.S. in bar 32, segno in bar 65 (after it). 1.9.0 plays
+  1–100, then 1–32, jumps to 65–96 and 101–113; 1.8.4 jumped the first time
+  (1–32, 65–113). Check that the new order is what the score means.
+- Walk: "D.S. al Coda" in bar 33 but no To Coda mark (two coda signs, bars 24 and
+  34), so after the jump it plays straight through, as before. Add the To Coda in
+  MuseScore.
+- Printed tempo differs from MuseScore's playback tempo, and the player now
+  follows the playback tempo: Missa Papae Marcelli, Kyrie (♩ = 160 printed, plays
+  180) and Önska dig en stilla natt v10 (60 printed, plays 70). Decide which is
+  right and fix the tempo mark in MuseScore.
+- O Magnum Mysterium (Lauridsen): a tempo of 76 in bar 19 was read by 1.8.4 and is
+  not by 1.9.0 (start tempo 72 unchanged). Not checked against the score.
+- Carol of the Bells: two tempo marks on top of each other in bar 1 (a hidden 144
+  and the printed 160). Remove the hidden one in MuseScore.
+- Tell the testers: six scores with a dotted-quarter tempo played at two thirds
+  of the speed until now (A babe is born, Of a Rose, Cry Out and Shout, Over Hill,
+  Walk, Walk-Tenor flat), and 31 scores repeated their first ending.
+- Report upstream if wanted: three voltas without play counts, measure-level
+  `<sound tempo>`, short measures (see README, "Known alphaTab quirks").
+
 ## Older items, still open
 
 - Instrument presets per part and soundfont selection (a better piano and
