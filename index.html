@@ -62,8 +62,10 @@ label{display:block;margin:4px 0}
 <button id="zoomout">−</button><button id="zoomv"></button><button id="zoomin">+</button></div>
 <div id="main"><div id="at"></div></div>
 </div>
-<!-- Locally patched alphaTab (repeats before jumps), see patch_alphatab.py -->
-<script src="vendor/alphaTab.js"></script>
+<!-- Unmodified alphaTab build, fetched by vendor_alphatab.py -->
+<!-- The ?v= must change with the alphaTab version: page and worker have to load the same
+     build, and a browser must not pair a cached old file with a new one. -->
+<script src="vendor/alphaTab.js?v=1.9.0"></script>
 <script>
 // ---- UI strings (Swedish; the choir's language). Everything the user sees is here. ----
 const T={
@@ -92,10 +94,10 @@ document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T[e.dataset.t]);
 T.presets.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;$('#preset').appendChild(o);});
 
 const main=$('#main');
-// Everything alphaTab needs is served from vendor/ (see patch_alphatab.py); no CDN at runtime.
+// Everything alphaTab needs is served from vendor/ (see vendor_alphatab.py); no CDN at runtime.
 const settings={
- core:{scriptFile:new URL('vendor/alphaTab.js',location.href).href,fontDirectory:new URL('vendor/font/',location.href).href},
- player:{enablePlayer:true,enableCursor:true,enableUserInteraction:true,soundFont:new URL('vendor/soundfont/sonivox.sf3',location.href).href,scrollElement:main},
+ core:{scriptFile:new URL('vendor/alphaTab.js?v=1.9.0',location.href).href,fontDirectory:new URL('vendor/font/',location.href).href},
+ player:{enablePlayer:true,enableCursor:true,soundFont:new URL('vendor/soundfont/sonivox.sf3',location.href).href,scrollElement:main},
  display:{layoutMode:'page',scale:0.9}
 };
 // Zoom: the user's choice is remembered in this browser; without one, small screens
@@ -122,15 +124,25 @@ function fixJumps(s){
  swap(D.JumpDaCapo,D.JumpDaCapoAlCoda,D.JumpDaCapoAlFine);
  swap(D.JumpDalSegno,D.JumpDalSegnoAlCoda,D.JumpDalSegnoAlFine);
 }
+function fixEndingRepeats(s){
+ // MuseScore closes every volta but the last with a plain repeat sign and writes no play
+ // count. alphaTab 1.9 counts passes per repeat and takes each sign as "twice", so with
+ // three endings it plays the first two and runs straight on into the third. A sign that
+ // closes ending N means at least N+1 passes.
+ s.masterBars.forEach(m=>{ if(m.isRepeatEnd&&m.alternateEndings) m.repeatCount=Math.max(m.repeatCount,33-Math.clz32(m.alternateEndings)); });
+}
 function trackNamesOnEverySystem(s){
  // full part names on the first system, short names (S, A, T, B1 ...) on every other.
  // These are properties of the score's stylesheet, not of the settings.
  const M=alphaTab.model; const ss=s.stylesheet;
  ss.multiTrackTrackNamePolicy=M.TrackNamePolicy.AllSystems; ss.singleTrackTrackNamePolicy=M.TrackNamePolicy.AllSystems;
  ss.firstSystemTrackNameMode=M.TrackNameMode.FullName; ss.otherSystemsTrackNameMode=M.TrackNameMode.ShortName;
+ // alphaTab 1.9 numbers only the first bar of each system by default. Bookmarks and error
+ // reports go by bar number, so number every bar.
+ ss.scoreConfig.barNumber=M.BarNumberDisplay.AllBars;
 }
 api.scoreLoaded.on(s=>{
- score=s; saved=null; fixJumps(s); trackNamesOnEverySystem(s);
+ score=s; saved=null; fixJumps(s); fixEndingRepeats(s); trackNamesOnEverySystem(s);
  mix={vol:s.tracks.map(()=>1),mute:s.tracks.map(()=>false),solo:s.tracks.map(()=>false),pan:s.tracks.map(()=>8)};
  api.renderTracks(s.tracks); renderTracks();
  currentFile=$('#file').value||currentFile; paintBookmarks();

@@ -4,6 +4,11 @@ Drafts of bug reports for https://github.com/CoderLine/alphaTab/issues, one
 problem per file. Written 2026-09-05 against the unmodified CDN build of
 alphaTab 1.8.4; the same behaviour is present in the 1.9.0-alpha.1891 build.
 
+Status with alphaTab 1.9.0 (checked 2026-11-24 with the harness, `?v=1.9.0`):
+01, 02, 04 and 05 are fixed and our workarounds are gone. 03 is unchanged
+(closed upstream as won't fix), so `fixJumps` stays. 06 was fixed before it
+was posted; the draft is kept for the record.
+
 | file | problem | our workaround | posted |
 |---|---|---|---|
 | 01-jump-before-repeat.md | D.C./D.S. on a bar that also closes an unfinished repeat is taken before the repeat | patch_alphatab.py | [#2858](https://github.com/CoderLine/alphaTab/issues/2858) |
@@ -11,7 +16,7 @@ alphaTab 1.8.4; the same behaviour is present in the 1.9.0-alpha.1891 build.
 | 03-musicxml-dacapo-without-coda.md | `dacapo` + `tocoda` plays to the end instead of jumping to the coda | `fixJumps` in index.html | [#2860](https://github.com/CoderLine/alphaTab/issues/2860) |
 | 04-musicxml-spelling.md | Notes without `<accidental>` are spelled from the key signature (F# drawn as Gb) | prepare.py step 4, partial | [#2861](https://github.com/CoderLine/alphaTab/issues/2861) |
 | 05-loadedmidiinfo-recursion.md | `api.midiLoaded.on()` after the first load throws a stack overflow | register before first load | [#2862](https://github.com/CoderLine/alphaTab/issues/2862) |
-| 06-musicxml-metronome-beat-unit.md | `<metronome>` with eighth/half beat unit gives the inverse tempo (♪ = 100 plays at 200) | prepare.py step 5b rewrites marks in quarters | not yet |
+| 06-musicxml-metronome-beat-unit.md | `<metronome>` with eighth/half beat unit gives the inverse tempo (♪ = 100 plays at 200) | prepare.py step 5b rewrites marks in quarters | fixed in 1.9.0, never posted |
 
 ## alphaTab's rules, and what they mean for you
 

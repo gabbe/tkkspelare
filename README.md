@@ -39,7 +39,7 @@ The page is static, but alphaTab runs in web workers, so it has to be served
 over http:
 
 ```bash
-py patch_alphatab.py          # downloads alphaTab 1.8.4, its font and soundfont into vendor/
+py vendor_alphatab.py         # downloads alphaTab 1.9.0, its font and soundfont into vendor/
 py -m http.server 8765
 ```
 
@@ -158,28 +158,41 @@ The site is static files behind HTTP basic auth on Apache; see
 `deploy/spelare.thnkk.se.conf` for the site config. `deploy.py` runs the Drive
 sync and uploads the site over SSH in one command.
 
-## patch_alphatab.py – repeats before jumps
+## vendor_alphatab.py – alphaTab, font and soundfont
 
-alphaTab 1.8.4 executes D.C./D.S. the first time it reaches the bar, even when
-that bar also closes a repeat that has not been played the required number of
-times. The convention (and MuseScore) is: finish the repeats, then jump. The
-script downloads the exact release from the CDN and inserts the check in
-`MidiPlaybackController`. It aborts if the anchor text is not found exactly
-once, which is what happens when a new alphaTab version changes the code.
-Remove it once fixed upstream. After the jump, repeats are not replayed, as in
-MuseScore.
+Downloads the exact alphaTab release from the CDN into `vendor/`, together with
+the Bravura font and the SONiVOX soundfont, so the site needs no CDN at
+runtime. The build is used unmodified. (Up to 1.8.4 the script was
+`patch_alphatab.py` and also patched the playback order; 1.9.0 finishes the
+repeats before a D.C./D.S. on the same bar by itself.)
 
-## Known alphaTab quirks (1.8.4)
+When the version changes, change the `?v=` on the two `vendor/alphaTab.js`
+URLs in `index.html` too. The page and its audio worker must run the same
+build, and without a new URL a browser can keep using the old file from its
+cache.
+
+## Known alphaTab quirks (1.9.0)
 
 Documented so they are not rediscovered. Each has a workaround in the code.
+Upstream issue numbers refer to `upstream-issues/`.
 
-- A jump takes precedence over a repeat in the same bar. See patch_alphatab.py.
-- `<sound>` inside `<direction>` is read for tempo only. See prepare.py step 5.
-- `<metronome>` tempo is computed as per-minute × (beat unit ÷ 4) with alphaTab's
-  Duration enum (quarter = 4, eighth = 8), so ♪ = 100 plays at 200 quarter BPM and
-  𝅗𝅥 = 60 at 30. prepare.py rewrites marks in quarters (step 5b). Upstream issue 06.
-- Notes are spelled from the key signature, not from MusicXML step and alter.
-  See step 4.
+- MusicXML `dacapo` + `tocoda` (MuseScore's separate "D.C." and "To Coda"
+  marks) is imported as a plain D.C. and plays to the end. `fixJumps` in
+  index.html turns it into D.C. al Coda. Upstream #2860, closed as won't fix.
+- Voltas: MuseScore closes every ending but the last with a repeat sign without
+  a play count. alphaTab counts passes per repeat and reads each sign as
+  "twice", so with three endings it plays the first two and runs on into the
+  third. `fixEndingRepeats` in index.html raises the count to the ending number
+  plus one. Not reported upstream; the 1.9.0 release notes mention the limit.
+- A `<sound tempo>` directly under `<measure>` is ignored (inside a
+  `<direction>` it works). prepare.py adds a metronome mark, see
+  `add_missing_metronome`. Not reported upstream.
+- A measure shorter than its time signature is played at full length unless it
+  is marked `implicit="yes"`, which MuseScore writes only for a pickup at the
+  very start. See `mark_short_measures` in prepare.py. Not reported upstream.
+- Bar numbers are drawn only on the first bar of each system by default. The
+  player sets `stylesheet.scoreConfig.barNumber` to all bars, since bookmarks
+  and error reports go by bar number.
 - Instrument change: the importer stores the file's instrument as a beat
   automation that overrides `playbackInfo.program`. Both must be changed.
 - `playbackInfo.volume` is used both as MIDI channel volume when generating
@@ -188,9 +201,12 @@ Documented so they are not rediscovered. Each has a workaround in the code.
   volume and then sets the field to the mixer level.
 - A playback range is stored in ticks, which move when repeats are switched on
   or off. The player remembers the range as bar plus offset and re-maps it.
-- `api.midiLoaded.on(...)` registered after the first load crashes with
-  infinite recursion in `loadedMidiInfo` (a typo in the worker proxy).
-  Register before the first load.
+
+Fixed in 1.9.0, workarounds removed: jump before a finished repeat (#2858),
+jump attributes on `<sound>` inside `<direction>` (#2859), note spelling from
+the key signature (#2861), `midiLoaded.on()` after the first load (#2862),
+and `<metronome>` with a beat unit other than a quarter (draft 06, never
+posted). 1.9.0 also plays a first ending only once; 1.8.4 repeated it.
 
 ## Planned
 

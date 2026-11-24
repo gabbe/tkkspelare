@@ -1,7 +1,7 @@
 # Backlog
 
 Tester feedback and planned work, with a note on how each item can be done in
-alphaTab 1.8.4. Items are recorded when they arrive; nothing here is started
+alphaTab 1.9.0. Items are recorded when they arrive; nothing here is started
 until it is picked.
 
 ## From the first testers (2026-09-09)
@@ -239,6 +239,12 @@ step to 2.0 (and add it to the buttons) for users who need large notes.
   seen in Herr, wenn ich nur dich habe; waiting for Niklas's answers. See
   the BRF workflow notes.
 - Remove the alphaTab workarounds as upstream issues #2858–#2862 get fixed.
+  Done 2026-11-24 on branch `alphatab-1.9.0`: alphaTab 1.9.0 (released 31 Oct),
+  unpatched; prepare.py's tie-accidental, jump and metronome steps removed;
+  `fixJumps` kept (#2860), `fixEndingRepeats` added for three voltas (Biebl).
+  All 22 Aktuellt scores compared against 1.8.4 for playback order, bar
+  lengths and tempo. Still to do before deploy: look at the layout on a
+  phone and listen. What follows is the earlier status.
   Status 2026-10-12: #2858, #2859, #2861, #2862 fixed on alphaTab `develop`
   (6–7 Oct); #2860 closed as won't fix, so `fixJumps` stays. No npm build has
   the fixes yet (newest is 1.9.0-alpha.1891 from 10 Aug; their nightly web

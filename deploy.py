@@ -36,7 +36,7 @@ def main():
         cmd += ([] if a.all or a.instance else ['--only-current']) + (['--force'] if a.force else [])
         if subprocess.run(cmd).returncode != 0: sys.exit('sync failed, nothing uploaded')
     for must in ['index.html', 'library.json', 'vendor/alphaTab.js', 'vendor/soundfont/sonivox.sf3']:
-        if not at(must).exists(): sys.exit(f'missing {must}; run patch_alphatab.py / sync.py first')
+        if not at(must).exists(): sys.exit(f'missing {must}; run vendor_alphatab.py / sync.py first')
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:

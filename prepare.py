@@ -23,21 +23,20 @@ What it does, in order:
      (unison), and where voice 1 holds chords in such a bar the top note goes
      to the upper part and the bottom note to the lower one (S/A on one stem).
      The bars are listed either way, so the digitiser can check.
-  4. Tied notes that continue into a new bar get an explicit <accidental> copied
-     from the start of the tie.  alphaTab spells notes from the key signature
-     unless an <accidental> is present, so without this an F# tied over a bar
-     line in a flat key is drawn as Gb in the second bar.  alphaTab hides the
-     redundant sign on tied notes, so nothing extra is drawn.
-  5. Jump directions (D.C., D.S., To Coda, Coda, Fine, Segno) that MuseScore
-     writes as <sound> inside <direction> are copied to a measure-level <sound>,
-     which is the only place alphaTab reads them.  The player then turns
-     "D.C." + "To Coda" into "D.C. al Coda" (see index.html).
+  4. alphaTab workarounds, see the functions for the details: a bare measure-level
+     <sound tempo> gets a metronome mark (add_missing_metronome), and a bar that is
+     shorter than its time signature is marked as a pickup (mark_short_measures).
+     Up to alphaTab 1.8.4 this step also added accidentals to tied notes, copied
+     jump directions to measure level and rewrote metronome marks in quarters;
+     alphaTab 1.9.0 reads all of that correctly.
+  5. (removed, was the jump-direction workaround; the numbering is kept because
+     older notes and commits refer to steps 6 and 7.)
   6. --only "Tenor 2,Tenor": keep a single part (first match wins) and drop the
      rest, producing the one-part file the braille transcription needs, so no
      "Tenor part with the bass hidden" has to be maintained in MuseScore.
      System marks that MuseScore writes on the top staff only (tempo, D.C.,
      To Coda, Coda, Segno, Fine, rehearsal marks, volta endings) are carried into the kept
-     part. Steps 4 and 5 are alphaTab workarounds and are skipped with --only.
+     part. Step 4 is for alphaTab only and is skipped with --only.
   7. --no-split: skip step 1. For braille, a part that divides for a couple of
      beats (Rehnqvist, Tenor bar 36) should stay one part: the transcriber
      writes the divisi as in-accord, and the singer sees both lines. Splitting
@@ -429,85 +428,25 @@ def explode_chords(root, partlist, explode):
             reps.append((nsp, npart))
         replace_part(root, partlist, sp, part, reps)
 
-# ---------- 4. accidentals on tied notes ----------
-def fix_tie_accidentals(root):
-    fixed = 0
-    for part in root.findall('part'):
-        pending = {}
-        for m in part.findall('measure'):
-            for note in m.findall('note'):
-                p = note.find('pitch')
-                if p is None: continue
-                key = (p.findtext('step'), p.findtext('alter'), p.findtext('octave'))
-                ties = {t.get('type') for t in note.findall('tie')}
-                acc = note.find('accidental')
-                if 'stop' in ties and acc is None and key in pending:
-                    a = ET.Element('accidental'); a.text = pending[key]
-                    insert_ordered(note, a); fixed += 1
-                if 'start' in ties:
-                    if acc is not None: pending[key] = acc.text
-                    elif key not in pending:
-                        alt = p.findtext('alter')
-                        pending[key] = {'1': 'sharp', '-1': 'flat', '2': 'double-sharp', '-2': 'flat-flat'}.get(alt, 'natural')
-                elif 'stop' in ties:
-                    pending.pop(key, None)
-    print(f'tied-over notes given an explicit accidental: {fixed}')
-
-# ---------- 5. jump directions to measure level ----------
-def hoist_jumps(root):
-    n = 0
-    for part in root.findall('part'):
-        for m in part.findall('measure'):
-            for d in list(m.findall('direction')):
-                s = d.find('sound')
-                if s is None: continue
-                attrs = {k: v for k, v in s.attrib.items() if k in JUMP_ATTRS}
-                if not attrs: continue
-                m.insert(list(m).index(d) + 1, ET.Element('sound', attrs)); n += 1
-    print(f'jump directions copied to measure level: {n}')
-
-# ---------- 5b. metronome marks in quarters ----------
-BEAT_UNITS = {'whole': 4.0, 'half': 2.0, 'quarter': 1.0, 'eighth': 0.5, '16th': 0.25, '32nd': 0.125}
-
-def fix_metronome(root):
-    """alphaTab 1.8.4 computes the tempo from <metronome> as per-minute * (unit / 4) with
-    its Duration enum (quarter = 4, eighth = 8), so "eighth = 100" plays at 200 quarter
-    BPM and "half = 60" at 30. Rewrite every mark in quarters (eighth = 100 -> quarter =
-    50), which alphaTab handles correctly. The <sound tempo> MuseScore writes next to
-    the mark is already in quarters and is left alone. Reported upstream (issue 06)."""
-    n = 0
-    for mt in root.iter('metronome'):
-        unit = mt.find('beat-unit'); pm = mt.find('per-minute')
-        if unit is None or pm is None or unit.text not in BEAT_UNITS or unit.text == 'quarter': continue
-        try: bpm = float(pm.text)
-        except (TypeError, ValueError): continue
-        factor = BEAT_UNITS[unit.text] * (1.5 if mt.find('beat-unit-dot') is not None else 1.0)
-        q = bpm * factor
-        pm.text = str(int(q)) if q == int(q) else f'{q:g}'
-        unit.text = 'quarter'
-        for d in mt.findall('beat-unit-dot'): mt.remove(d)
-        n += 1
-    if n: print(f'metronome marks rewritten in quarters for alphaTab: {n}')
-
+# ---------- 4. alphaTab workarounds ----------
 def add_missing_metronome(root):
-    """alphaTab 1.8.4 takes the tempo only from <metronome>; a <sound tempo> becomes a beat
-    automation that is thrown away, so the score plays at the default 120. MuseScore writes
-    the bare <sound tempo> for an invisible tempo mark or a text-only one ("Andante").
-    Put a quarter-note metronome mark in front of every such <sound>."""
+    """alphaTab 1.9.0 reads the tempo from <metronome> and from a <sound tempo> inside a
+    <direction>, but still ignores a <sound tempo> directly under <measure>, and the score
+    then plays at the default 120. Put a quarter-note metronome mark in front of every
+    such <sound>."""
     n = 0
     for m in root.iter('measure'):
         for el in list(m):
-            snd = el if el.tag == 'sound' else el.find('sound') if el.tag == 'direction' else None
-            if snd is None or 'tempo' not in snd.attrib or el.find('.//metronome') is not None: continue
+            if el.tag != 'sound' or 'tempo' not in el.attrib: continue
             d = ET.Element('direction', {'placement': 'above'})
             mt = ET.SubElement(ET.SubElement(d, 'direction-type'), 'metronome')
             ET.SubElement(mt, 'beat-unit').text = 'quarter'
-            ET.SubElement(mt, 'per-minute').text = f'{float(snd.get("tempo")):g}'
+            ET.SubElement(mt, 'per-minute').text = f'{float(el.get("tempo")):g}'
             m.insert(list(m).index(el), d); n += 1
     if n: print(f'tempo marks added for alphaTab: {n}')
 
 def mark_short_measures(root):
-    """alphaTab 1.8.4 plays a measure that is shorter than its time signature at full
+    """alphaTab (1.8.4 and 1.9.0) plays a measure that is shorter than its time signature at full
     length, with silence added at the end, unless it is marked implicit="yes" (then it
     is an anacrusis and lasts as long as its notes). MuseScore sets that only on a
     pickup at the very start, not on a short bar after a repeat sign or a split bar at
@@ -639,14 +578,11 @@ def main():
     if a.copy_lyrics: borrow_lyrics(root, partlist)
     if a.only:
         # A single-part file is for braille transcription, not for alphaTab: leave the
-        # MusicXML as MuseScore wrote it (no extra accidentals, no duplicated <sound>).
+        # MusicXML as MuseScore wrote it.
         keep_only(root, partlist, [x.strip() for x in a.only.split(',')])
     else:
-        fix_tie_accidentals(root)
-        hoist_jumps(root)
         add_missing_metronome(root)
         mark_short_measures(root)
-        fix_metronome(root)
 
     out = ET.tostring(root, encoding='utf-8', xml_declaration=True)
     m = re.search(rb'<!DOCTYPE[^>]*>', data)
