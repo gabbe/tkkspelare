@@ -123,7 +123,7 @@ def prepare(src, dst, names, explode, only=None, no_split=False):
         raise RuntimeError(f'prepare.py failed: {(r.stderr or r.stdout).strip()[-400:]}')
     # anything prepare.py reports about the score (not the routine "kept" / "wrote" lines)
     return [l.strip() for l in r.stdout.splitlines()
-            if l.strip() and not re.match(r'(wrote|.*: 1 voice, kept|tied-over notes|jump directions|system marks|tempo marks|kept only)', l.strip())]
+            if l.strip() and not re.match(r'(wrote|.*: 1 voice, kept|tied-over notes|jump directions|system marks|tempo marks|short measures|kept only)', l.strip())]
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

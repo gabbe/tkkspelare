@@ -506,6 +506,33 @@ def add_missing_metronome(root):
             m.insert(list(m).index(el), d); n += 1
     if n: print(f'tempo marks added for alphaTab: {n}')
 
+def mark_short_measures(root):
+    """alphaTab 1.8.4 plays a measure that is shorter than its time signature at full
+    length, with silence added at the end, unless it is marked implicit="yes" (then it
+    is an anacrusis and lasts as long as its notes). MuseScore sets that only on a
+    pickup at the very start, not on a short bar after a repeat sign or a split bar at
+    a repeat end. Mark every measure that is short in all parts."""
+    longest, nominal = {}, {}
+    parts = [list(p.iter('measure')) for p in root.iter('part')]
+    for measures in parts:
+        div = full = None
+        for i, m in enumerate(measures):
+            a = m.find('attributes')
+            if a is not None:
+                if a.findtext('divisions'): div = float(a.findtext('divisions'))
+                t = a.find('time')
+                if t is not None:
+                    try: full = 4.0 * float(t.findtext('beats')) / float(t.findtext('beat-type'))
+                    except (TypeError, ValueError): full = None
+            if div and full:
+                longest[i] = max(longest.get(i, 0), measure_length(m) / div); nominal[i] = full
+    short = [i for i in sorted(longest) if 0 < longest[i] < nominal[i] - 1e-6]
+    for measures in parts:
+        for i in short:
+            if i < len(measures): measures[i].set('implicit', 'yes')
+    marked = [i + 1 for i in short]
+    if marked: print(f'short measures marked as pickups for alphaTab: {", ".join(map(str, marked))}')
+
 # ---------- 6. keep a single part (for braille transcription) ----------
 def carry_system_marks(top, kept):
     """MuseScore writes system-wide marks (tempo, D.C., To Coda, Coda, Segno, Fine,
@@ -618,6 +645,7 @@ def main():
         fix_tie_accidentals(root)
         hoist_jumps(root)
         add_missing_metronome(root)
+        mark_short_measures(root)
         fix_metronome(root)
 
     out = ET.tostring(root, encoding='utf-8', xml_declaration=True)
