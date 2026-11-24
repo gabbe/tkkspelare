@@ -279,3 +279,15 @@ step to 2.0 (and add it to the buttons) for users who need large notes.
   of the last "Bisync successful" in `~/.local/state/rclone/sync-digitala-noter.log`),
   with `--stale-ok` to override. Only where that log exists (fritz); on RADISH the
   source is the Google Drive client and there is no bisync to check.
+- Report two more alphaTab MusicXML bugs upstream (2026-11-24), as drafts 07 and 08 in
+  `upstream-issues/` with four-bar repros, then file them. (1) `<sound tempo>` without
+  a `<metronome>` is ignored: it becomes a beat automation (value run through
+  `_interpolatePercent`) that is dropped, so a score with an invisible or text-only
+  tempo mark plays at 120. Seen with Jul, jul, strålande jul, Marias vaggvisa and Biebl's
+  Ave Maria. Workaround: `add_missing_metronome` in prepare.py. (2) A measure shorter
+  than its time signature that is not the first bar (pickup after a repeat sign, split
+  bar, short final bar) plays at full length with silence at the end unless it has
+  `implicit="yes"`, which MuseScore does not write there. Seen with Biebl's Ave Maria
+  bar 3 and Deck the hall 49–50. Workaround: `mark_short_measures` in prepare.py, which
+  also makes alphaTab hide that bar's number. Check both against alphaTab `develop`
+  first, and add the workarounds to the removal list above once fixed.
