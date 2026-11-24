@@ -128,8 +128,15 @@ function fixEndingRepeats(s){
  // MuseScore closes every volta but the last with a plain repeat sign and writes no play
  // count. alphaTab 1.9 counts passes per repeat and takes each sign as "twice", so with
  // three endings it plays the first two and runs straight on into the third. A sign that
- // closes ending N means at least N+1 passes.
- s.masterBars.forEach(m=>{ if(m.isRepeatEnd&&m.alternateEndings) m.repeatCount=Math.max(m.repeatCount,33-Math.clz32(m.alternateEndings)); });
+ // closes ending N means at least N+1 passes, as long as a later ending follows: a repeat
+ // sign on the last ending itself (Nu tändas tusen juleljus) must not add a pass.
+ const mb=s.masterBars;
+ mb.forEach((m,i)=>{
+  if(!m.isRepeatEnd||!m.alternateEndings) return;
+  const n=32-Math.clz32(m.alternateEndings);
+  for(let j=i+1;j<mb.length&&!mb[j].isRepeatStart&&!(mb[j].alternateEndings&1);j++)
+   if(mb[j].alternateEndings>>>n){ m.repeatCount=Math.max(m.repeatCount,n+1); break; }
+ });
 }
 function trackNamesOnEverySystem(s){
  // full part names on the first system, short names (S, A, T, B1 ...) on every other.

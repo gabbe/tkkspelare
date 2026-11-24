@@ -92,7 +92,9 @@ A second site with a different selection of songs is an entry under
 Per-song exceptions go in `songs.json` (committed, it holds titles only),
 keyed by the `.mscz` file name without extension: `title`, `names` (extra
 two-voice staff names), `explode` (divisi written as chords), `skip`, `keep`
-(include a file that looks like a single-part score), `braille_part`.
+(include a file that looks like a single-part score), `braille_part`, `drop`
+(part names to leave out of the player, such as a "for rehearsal only" piano
+reduction that only doubles the choir).
 Common staff names (S/A, T/B, Soprano/alto, Damer, Herrar ...) are mapped to
 Sopran, Alt, Tenor, Bas by default. Files named "... - Tenor" or "...Tenor2"
 are treated as hand-made single-part scores and skipped, since the braille
@@ -183,7 +185,7 @@ Upstream issue numbers refer to `upstream-issues/`.
   a play count. alphaTab counts passes per repeat and reads each sign as
   "twice", so with three endings it plays the first two and runs on into the
   third. `fixEndingRepeats` in index.html raises the count to the ending number
-  plus one. Not reported upstream; the 1.9.0 release notes mention the limit.
+  plus one when a later ending follows. Not reported upstream; the 1.9.0 release notes mention the limit.
 - A `<sound tempo>` directly under `<measure>` is ignored (inside a
   `<direction>` it works). prepare.py adds a metronome mark, see
   `add_missing_metronome`. Not reported upstream.
