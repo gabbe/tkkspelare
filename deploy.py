@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sync the library from Drive and upload the site to the web server over SSH.
 
-    py deploy.py [--all] [--no-sync] [--force]
+    py deploy.py [--all] [--no-sync] [--force] [--instance NAME]
 
 Reads deploy_host and deploy_dir from sync.local.json (see deploy/SERVER.md),
 with the same per-host override block as sync.py.
@@ -13,7 +13,7 @@ import argparse, io, pathlib, subprocess, sys, tarfile, time
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from sync import load_local
+from sync import load_local, site_root
 SITE_FILES = ['index.html', 'robots.txt', 'library.json']
 SITE_DIRS = ['vendor', 'noter', 'test', 'img']
 
@@ -22,23 +22,28 @@ def main():
     ap.add_argument('--all', action='store_true', help='sync everything, not only the current folder')
     ap.add_argument('--no-sync', action='store_true', help='skip the Drive sync, upload what is there')
     ap.add_argument('--force', action='store_true', help='re-export every score during the sync')
+    ap.add_argument('--instance', help='a second site from "instances" in sync.local.json; always syncs its whole source')
     a = ap.parse_args()
-    cfg = load_local()
+    cfg = load_local(a.instance)
     host, remote = cfg.get('deploy_host'), cfg.get('deploy_dir')
     if not host or not remote: sys.exit('deploy_host and deploy_dir missing in sync.local.json')
+    root = site_root(a.instance)
+    # the app is shared; only the scores and their index come from the instance
+    at = lambda name: (root if name.split('/')[0] in ('library.json', 'noter') else HERE) / name
 
     if not a.no_sync:
-        cmd = [sys.executable, str(HERE / 'sync.py')] + ([] if a.all else ['--only-current']) + (['--force'] if a.force else [])
+        cmd = [sys.executable, str(HERE / 'sync.py')] + (['--instance', a.instance] if a.instance else [])
+        cmd += ([] if a.all or a.instance else ['--only-current']) + (['--force'] if a.force else [])
         if subprocess.run(cmd).returncode != 0: sys.exit('sync failed, nothing uploaded')
     for must in ['index.html', 'library.json', 'vendor/alphaTab.js', 'vendor/soundfont/sonivox.sf3']:
-        if not (HERE / must).exists(): sys.exit(f'missing {must}; run patch_alphatab.py / sync.py first')
+        if not at(must).exists(): sys.exit(f'missing {must}; run patch_alphatab.py / sync.py first')
 
     buf = io.BytesIO()
     with tarfile.open(fileobj=buf, mode='w:gz') as tar:
         for f in SITE_FILES:
-            if (HERE / f).exists(): tar.add(HERE / f, arcname=f)
+            if at(f).exists(): tar.add(at(f), arcname=f)
         for d in SITE_DIRS:
-            if (HERE / d).exists(): tar.add(HERE / d, arcname=d, filter=lambda ti: None if ti.name.endswith(('.json',)) and ti.name.startswith('noter/') else ti)
+            if at(d).exists(): tar.add(at(d), arcname=d, filter=lambda ti: None if ti.name.endswith(('.json',)) and ti.name.startswith('noter/') else ti)
     data = buf.getvalue()
     print(f'uploading {len(data)//1024} kB to {host}:{remote}')
     stamp = time.strftime('%Y%m%d-%H%M%S')

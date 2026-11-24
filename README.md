@@ -85,6 +85,10 @@ merged over the top-level keys on the matching machine:
                       "musescore": "/home/gabriel/bin/musescore"}}}
 ```
 
+A second site with a different selection of songs is an entry under
+`instances` in the same file, used with `--instance NAME`; see
+"A second instance" in [deploy/SERVER.md](deploy/SERVER.md).
+
 Per-song exceptions go in `songs.json` (committed, it holds titles only),
 keyed by the `.mscz` file name without extension: `title`, `names` (extra
 two-voice staff names), `explode` (divisi written as chords), `skip`, `keep`

@@ -87,6 +87,35 @@ from the server as well, since the upload replaces the whole site directory
 atomically (uploaded next to it, then swapped). The app icons live in `img/`,
 not `icons/`: Debian's Apache aliases `/icons/` to its own directory listing icons.
 
+## A second instance with other songs (thornblad.com/korspelare)
+
+The same player with a different selection of scores, at
+`https://thornblad.com/korspelare/<token>/`. There is no login; the secret
+link is the only way in. thornblad.com is served by the same Apache, so the
+instance is a few lines included into that site, see the comments at the top
+of `korspelare-thornblad.conf` for the server steps.
+
+On the digitiser's machine the instance is an entry in `sync.local.json`:
+
+```json
+"instances": {"thornblad": {"source": "G:/.../Urval", "deploy_dir": "/var/www/korspelare"}}
+```
+
+`source` is a folder holding copies of the chosen `.mscz` files (subfolders
+become groups in the song list). An instance inherits `deploy_host` and
+`musescore` from the main settings but never `source` or `deploy_dir`. The
+per-song settings in `songs.json` apply to the copies as well, as long as the
+file names are unchanged; `instances/thornblad/songs.json` can override them.
+
+```bash
+py deploy.py --instance thornblad             # sync the whole source, then upload
+py deploy.py --instance thornblad --no-sync   # upload what is already there
+```
+
+The exported scores land in `instances/thornblad/` (git-ignored), next to the
+main `noter/` and `library.json`, which are not touched. A copy does not
+follow later corrections of the original on Drive; copy the file again.
+
 ## Checks after the first deploy
 
 - `https://spelare.thnkk.se/` asks for the login once, then shows the player.

@@ -33,6 +33,12 @@ so one file can travel between machines through a synced folder:
   {"deploy_host": "voldemort", "deploy_dir": "/var/www/tkkspelare",
    "hosts": {"RADISH": {"source": "G:/.../2. MuseScore", "musescore": "C:/Program Files/MuseScore 4/bin/MuseScore4.exe"},
              "fritz":  {"source": "/home/gabriel/Drive/.../2. MuseScore", "musescore": "/home/gabriel/bin/musescore"}}}
+
+A second site with other songs is an entry under "instances" there, with its own
+"source" and "deploy_dir" (and "hosts" block if the paths differ per machine):
+   "instances": {"thornblad": {"source": "G:/.../Urval", "deploy_dir": "/var/www/korspelare"}}
+`py sync.py --instance thornblad` then writes instances/thornblad/noter/ and
+library.json (git-ignored) instead of the main ones, see deploy/SERVER.md.
 """
 import argparse, json, os, pathlib, re, shutil, socket, subprocess, sys, tempfile, time, zipfile
 import xml.etree.ElementTree as ET
@@ -41,8 +47,6 @@ try: sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 except Exception: pass
 
 HERE = pathlib.Path(__file__).resolve().parent
-NOTER = HERE / 'noter'
-LIBRARY = HERE / 'library.json'
 SONGS = HERE / 'songs.json'
 LOCAL = HERE / 'sync.local.json'
 CURRENT_FOLDER = 'Aktuellt'
@@ -65,12 +69,28 @@ BRAILLE_PART = ['Tenor 2', 'Tenor II', 'T2', 'Ténor 2', 'Tenor', 'T', 'Ténor',
 def load_json(path, default):
     return json.loads(path.read_text(encoding='utf8')) if path.exists() else default
 
-def load_local():
-    """sync.local.json with this host's block from "hosts" merged over the top-level keys."""
-    cfg = load_json(LOCAL, {})
+def with_host(cfg):
+    cfg = dict(cfg)
     hosts = {k.lower(): v for k, v in cfg.pop('hosts', {}).items()}
     cfg.update(hosts.get(socket.gethostname().lower(), {}))
     return cfg
+
+def load_local(instance=None):
+    """sync.local.json with this host's block from "hosts" merged over the top-level keys,
+    and for a named instance its block from "instances" (with its own "hosts") over that."""
+    cfg = load_json(LOCAL, {})
+    instances = cfg.pop('instances', {})
+    cfg = with_host(cfg)
+    if instance:
+        if instance not in instances: sys.exit(f'no instance "{instance}" in sync.local.json')
+        # never inherited: an instance must not sync the main library or deploy over the main site
+        cfg.pop('source', None); cfg.pop('deploy_dir', None)
+        cfg.update(with_host(instances[instance]))
+    return cfg
+
+def site_root(instance=None):
+    """Where noter/ and library.json live: the repo for the main site, instances/<name>/ otherwise."""
+    return HERE / 'instances' / instance if instance else HERE
 
 def names_arg(mapping):
     return ';'.join(f'{k}={",".join(v)}' for k, v in mapping.items())
@@ -107,19 +127,28 @@ def prepare(src, dst, names, explode, only=None, no_split=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    local = load_local()
-    ap.add_argument('--source', default=local.get('source'), help='folder with the .mscz files (default from sync.local.json)')
-    ap.add_argument('--musescore', default=local.get('musescore', r'C:\Program Files\MuseScore 4\bin\MuseScore4.exe'))
+    ap.add_argument('--instance', help='a second site with its own songs, from "instances" in sync.local.json')
+    ap.add_argument('--source', help='folder with the .mscz files (default from sync.local.json)')
+    ap.add_argument('--musescore')
     ap.add_argument('--only-current', action='store_true', help=f'only the "{CURRENT_FOLDER}" subfolder')
     ap.add_argument('--force', action='store_true', help='re-export everything')
     ap.add_argument('--braille-dir', help='also write <title>-<part>.mxl single-part files here (for SMB)')
     ap.add_argument('--limit', type=int, default=0, help='stop after N scores (for testing)')
     a = ap.parse_args()
-    if not a.source: sys.exit('no --source and no sync.local.json')
+    local = load_local(a.instance)
+    a.source = a.source or local.get('source')
+    a.musescore = a.musescore or local.get('musescore', r'C:\Program Files\MuseScore 4\bin\MuseScore4.exe')
+    if not a.source: sys.exit('no --source and no "source" in sync.local.json')
     source = pathlib.Path(a.source)
     if a.only_current: source = source / CURRENT_FOLDER
+    if not source.is_dir(): sys.exit(f'source folder not found: {source}')
+    # an instance's files are copies of the choir's, so the per-song settings still apply;
+    # instances/<name>/songs.json (git-ignored) can add to or override them
+    root = site_root(a.instance)
     songs = load_json(SONGS, {})
-    NOTER.mkdir(exist_ok=True)
+    if a.instance: songs.update(load_json(root / 'songs.json', {}))
+    NOTER, LIBRARY = root / 'noter', root / 'library.json'
+    NOTER.mkdir(parents=True, exist_ok=True)
 
     entries = []; done = 0; t0 = time.time()
     files = sorted(p for p in source.rglob('*.mscz') if not (set(p.relative_to(source).parts[:-1]) & SKIP_DIRS))
@@ -170,14 +199,14 @@ def main():
             except Exception as e:
                 print(f'! {rel}: {e}'); meta = {'title': title, 'warnings': [f'EXPORT FAILED: {e}'], 'source': str(src)}
                 if not out.exists(): continue
-        entries.append({'title': title, 'file': out.relative_to(HERE).as_posix(), 'folder': folder,
+        entries.append({'title': title, 'file': out.relative_to(root).as_posix(), 'folder': folder,
                         'current': folder.split('/')[0] == CURRENT_FOLDER, 'warnings': meta.get('warnings', []),
                         'score_title': meta.get('score_title')})
         if a.limit and done >= a.limit: break
 
     entries.sort(key=lambda e: (not e['current'], e['folder'].lower(), e['title'].lower()))
     LIBRARY.write_text(json.dumps(entries, ensure_ascii=False, indent=1), encoding='utf8')
-    print(f'library.json: {len(entries)} scores, {done} exported, {time.time()-t0:.0f} s')
+    print(f'{LIBRARY.relative_to(HERE).as_posix()}: {len(entries)} scores, {done} exported, {time.time()-t0:.0f} s')
 
 if __name__ == '__main__':
     main()
