@@ -489,6 +489,23 @@ def fix_metronome(root):
         n += 1
     if n: print(f'metronome marks rewritten in quarters for alphaTab: {n}')
 
+def add_missing_metronome(root):
+    """alphaTab 1.8.4 takes the tempo only from <metronome>; a <sound tempo> becomes a beat
+    automation that is thrown away, so the score plays at the default 120. MuseScore writes
+    the bare <sound tempo> for an invisible tempo mark or a text-only one ("Andante").
+    Put a quarter-note metronome mark in front of every such <sound>."""
+    n = 0
+    for m in root.iter('measure'):
+        for el in list(m):
+            snd = el if el.tag == 'sound' else el.find('sound') if el.tag == 'direction' else None
+            if snd is None or 'tempo' not in snd.attrib or el.find('.//metronome') is not None: continue
+            d = ET.Element('direction', {'placement': 'above'})
+            mt = ET.SubElement(ET.SubElement(d, 'direction-type'), 'metronome')
+            ET.SubElement(mt, 'beat-unit').text = 'quarter'
+            ET.SubElement(mt, 'per-minute').text = f'{float(snd.get("tempo")):g}'
+            m.insert(list(m).index(el), d); n += 1
+    if n: print(f'tempo marks added for alphaTab: {n}')
+
 # ---------- 6. keep a single part (for braille transcription) ----------
 def carry_system_marks(top, kept):
     """MuseScore writes system-wide marks (tempo, D.C., To Coda, Coda, Segno, Fine,
@@ -600,6 +617,7 @@ def main():
     else:
         fix_tie_accidentals(root)
         hoist_jumps(root)
+        add_missing_metronome(root)
         fix_metronome(root)
 
     out = ET.tostring(root, encoding='utf-8', xml_declaration=True)
