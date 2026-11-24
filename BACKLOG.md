@@ -234,11 +234,12 @@ step to 2.0 (and add it to the buttons) for users who need large notes.
 ## To look at after the alphaTab 1.9.0 upgrade (2026-11-24)
 
 Found while comparing all 276 scores (main library and thornblad) between
-1.8.4 and 1.9.0. Nothing here blocks the upgrade; each needs Gabriel's eye or ear.
+1.8.4 and 1.9.0. Nothing here blocks the upgrade.
 
-- Listen to the sound (1.9.0 decodes the soundfont with its own Vorbis code) and
-  look at the layout on a real phone before deploying. Only playback order, bar
-  lengths and tempo were compared, in the desktop preview.
+Decided 2026-11-24: the score-specific items below are dealt with when the score
+comes into "Aktuellt", not before.
+
+- Sound and layout on a real phone: checked by Gabriel 2026-11-24, fine.
 - Two scores fail in MuseScore's command-line export (exit 1320, both attempts)
   and are missing from the library: `Det är en ros utsprungen - Sköld.mscz` and
   `Tomorrow_shall_be_my_dancing_day v3.mscz`. Open them in MuseScore and re-save,
@@ -256,7 +257,8 @@ Found while comparing all 276 scores (main library and thornblad) between
 - O Magnum Mysterium (Lauridsen): a tempo of 76 in bar 19 was read by 1.8.4 and is
   not by 1.9.0 (start tempo 72 unchanged). Not checked against the score.
 - Carol of the Bells: two tempo marks on top of each other in bar 1 (a hidden 144
-  and the printed 160). Remove the hidden one in MuseScore.
+  and the printed 160). Same as with 1.8.4 (Gabriel, 2026-11-24), so not caused by
+  the upgrade; left as it is.
 - Tell the testers: six scores with a dotted-quarter tempo played at two thirds
   of the speed until now (A babe is born, Of a Rose, Cry Out and Shout, Over Hill,
   Walk, Walk-Tenor flat), and 31 scores repeated their first ending.
